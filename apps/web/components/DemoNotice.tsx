@@ -1,0 +1,1 @@
+export function DemoNotice({text}:{text?:string}){return <div className="demo-banner" role="note">⚠ {text||"This roadmap uses demonstration data and is not an official determination. Confirm all requirements, fees, dates, and approvals with your municipality."}</div>}

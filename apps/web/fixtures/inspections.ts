@@ -1,0 +1,208 @@
+import { CITATIONS } from "@/fixtures/citations";
+import type { InspectionItem, InspectionType } from "@/lib/types";
+
+type Template = Omit<InspectionItem, "completed">;
+
+const BUILDING: Template[] = [
+  {
+    id: "bldg-address",
+    inspectionType: "building",
+    department: "Building",
+    title: "Address posted and visible",
+    description: "The approved street address is posted so inspectors and emergency responders can identify the site.",
+    plainLanguage: "Put the house or building number where it is easy to see from the street.",
+    passingCriteria: "Numerals are at least 4 inches high, contrast with the background, and are visible from the public way.",
+    citation: CITATIONS.ibc105,
+  },
+  {
+    id: "bldg-plans",
+    inspectionType: "building",
+    department: "Building",
+    title: "Approved plans on site",
+    description: "The stamped construction documents are available for the inspector to compare with the work.",
+    plainLanguage: "Keep the city-stamped drawings at the job so the inspector can check them.",
+    passingCriteria: "Current approved drawings are on site and match the work being inspected.",
+    citation: CITATIONS.ibc107,
+  },
+  {
+    id: "bldg-egress",
+    inspectionType: "building",
+    department: "Building",
+    title: "Egress paths complete",
+    description: "Required means of egress, including door swing, landings, and stair geometry, match the approved documents.",
+    plainLanguage: "Exits, stairs, and doors must match the drawings and stay clear.",
+    passingCriteria: "Exit widths, door hardware, and stair/guard dimensions match the approved plan and IBC Chapter 10.",
+    citation: CITATIONS.ibc1004,
+  },
+  {
+    id: "bldg-detectors",
+    inspectionType: "building",
+    department: "Building",
+    title: "Smoke and CO alarms installed",
+    description: "Required smoke alarms and carbon monoxide alarms are installed and operational.",
+    plainLanguage: "Working smoke and carbon monoxide alarms are in the required rooms.",
+    passingCriteria: "Alarms are listed devices, powered as required, and test successfully.",
+    citation: CITATIONS.ibc110,
+  },
+  {
+    id: "bldg-trades",
+    inspectionType: "building",
+    department: "Building",
+    title: "Trade rough-ins signed off",
+    description: "Electrical, plumbing, mechanical, and gas rough inspections that apply to the permit are complete.",
+    plainLanguage: "Any wiring, pipes, or ducts that were required must already have passed their own inspections.",
+    passingCriteria: "Applicable trade inspections are approved before the final building inspection is requested.",
+    citation: CITATIONS.ibc110,
+  },
+  {
+    id: "bldg-workmanship",
+    inspectionType: "building",
+    department: "Building",
+    title: "Work matches approved scope",
+    description: "The completed work is consistent with the permitted drawings, including structure, fireblocking, and accessibility.",
+    plainLanguage: "What was built should match what the city approved. Unpermitted extra work can fail inspection.",
+    passingCriteria: "No unpermitted scope; structural and accessibility elements match the approved set.",
+    citation: CITATIONS.ibc107,
+  },
+];
+
+const FIRE: Template[] = [
+  {
+    id: "fire-extinguishers",
+    inspectionType: "fire",
+    department: "Fire",
+    title: "Extinguishers mounted and tagged",
+    description: "Portable fire extinguishers are the correct type, mounted, and currently tagged.",
+    plainLanguage: "The right fire extinguishers are on the wall, easy to reach, and not expired.",
+    passingCriteria: "Extinguishers are visible, unobstructed, and tagged within the last 12 months.",
+    citation: CITATIONS.ifc105,
+  },
+  {
+    id: "fire-exits",
+    inspectionType: "fire",
+    department: "Fire",
+    title: "Exit signs and emergency lighting",
+    description: "Exit signs are illuminated and emergency lighting has been functionally tested.",
+    plainLanguage: "Exit signs are lit and backup lights work if the power goes out.",
+    passingCriteria: "Exit signs remain illuminated and emergency lights operate on backup power for the required duration.",
+    citation: CITATIONS.ifc105,
+  },
+  {
+    id: "fire-occupant-load",
+    inspectionType: "fire",
+    department: "Fire",
+    title: "Occupant load posted",
+    description: "The approved occupant load is posted near the main entrance of assembly or public spaces.",
+    plainLanguage: "A sign shows the maximum number of people allowed in the room.",
+    passingCriteria: "Posted load matches the approved calculation and is durable and legible.",
+    citation: CITATIONS.ibc1004,
+  },
+  {
+    id: "fire-cooking",
+    inspectionType: "fire",
+    department: "Fire",
+    title: "Cooking suppression ready",
+    description: "Where grease-laden cooking occurs, the hood and automatic suppression system are installed and inspected.",
+    plainLanguage: "If you cook with grease, the hood and fire-suppression system must be installed and tested.",
+    passingCriteria: "Type I hood and suppression are listed, interlocked, and tagged; or cooking is limited so they are not required.",
+    citation: CITATIONS.ifc904,
+  },
+  {
+    id: "fire-lanes",
+    inspectionType: "fire",
+    department: "Fire",
+    title: "Fire access kept clear",
+    description: "Fire lanes, hydrants, and firefighter access paths are unobstructed.",
+    plainLanguage: "Keep fire lanes and hydrants open so firefighters can reach the building.",
+    passingCriteria: "No storage, parking, or event equipment blocks required fire access.",
+    citation: CITATIONS.ifc105,
+  },
+  {
+    id: "fire-layout",
+    inspectionType: "fire",
+    department: "Fire",
+    title: "Layout matches approved plan",
+    description: "Seating, tents, cooking, and displays match the approved fire-safety plan.",
+    plainLanguage: "Do not rearrange tables, tents, or cooking equipment away from the approved layout.",
+    passingCriteria: "Aisle widths and equipment locations match the approved fire plan.",
+    citation: CITATIONS.ifc105,
+  },
+];
+
+const HEALTH: Template[] = [
+  {
+    id: "health-handwash",
+    inspectionType: "health",
+    department: "Health",
+    title: "Handwashing stations stocked",
+    description: "Dedicated handwashing sinks are accessible, with soap, paper towels, and hot/cold water.",
+    plainLanguage: "A sink just for washing hands has soap, towels, and running water.",
+    passingCriteria: "Handwash sinks are unobstructed, labeled if required, and supplied during operation.",
+    citation: CITATIONS.foodcode,
+  },
+  {
+    id: "health-surfaces",
+    inspectionType: "health",
+    department: "Health",
+    title: "Food-contact surfaces cleanable",
+    description: "Counters, equipment, and utensils are smooth, nonabsorbent, and in good repair.",
+    plainLanguage: "Food-prep surfaces should be smooth and easy to clean, not cracked or wooden where food sits.",
+    passingCriteria: "Food-contact surfaces meet Food Code cleanability requirements.",
+    citation: CITATIONS.foodcode,
+  },
+  {
+    id: "health-cold-hold",
+    inspectionType: "health",
+    department: "Health",
+    title: "Refrigeration at 41°F or below",
+    description: "Cold-holding equipment maintains 41°F (5°C) or below with an accurate thermometer.",
+    plainLanguage: "Fridges keep food at 41°F or colder. Keep a thermometer inside.",
+    passingCriteria: "Measured cold-hold temperatures are 41°F or below; thermometers are present and calibrated.",
+    citation: CITATIONS.foodcode,
+  },
+  {
+    id: "health-cfp",
+    inspectionType: "health",
+    department: "Health",
+    title: "Certified person in charge",
+    description: "A certified food protection manager is identified and present as required.",
+    plainLanguage: "Someone with a food-safety certificate is in charge while you operate.",
+    passingCriteria: "A current certified food protection manager certificate is available on site.",
+    citation: CITATIONS.foodcode,
+  },
+  {
+    id: "health-pest",
+    inspectionType: "health",
+    department: "Health",
+    title: "Pest exclusion in place",
+    description: "Outer openings are protected with screens, door sweeps, or self-closing doors.",
+    plainLanguage: "Doors and windows should keep insects and rodents out.",
+    passingCriteria: "No unscreened openings; no evidence of infestation.",
+    citation: CITATIONS.foodcode,
+  },
+  {
+    id: "health-warewash",
+    inspectionType: "health",
+    department: "Health",
+    title: "Warewashing setup ready",
+    description: "A three-compartment sink or approved dishwasher is installed with sanitizer and test kit.",
+    plainLanguage: "You have a way to wash, rinse, and sanitize dishes, plus a way to check the sanitizer.",
+    passingCriteria: "Wash/rinse/sanitize sequence is available; sanitizer concentration can be verified.",
+    citation: CITATIONS.foodcode,
+  },
+];
+
+const BY_TYPE: Record<InspectionType, Template[]> = {
+  building: BUILDING,
+  fire: FIRE,
+  health: HEALTH,
+};
+
+export function inspectionTemplates(types: InspectionType[]): InspectionItem[] {
+  return types.flatMap((type) =>
+    BY_TYPE[type].map((item) => ({
+      ...item,
+      completed: false,
+    })),
+  );
+}

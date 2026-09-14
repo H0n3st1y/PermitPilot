@@ -1,2 +1,47 @@
-import Link from "next/link";import {DemoNotice} from "@/components/DemoNotice";
-export default function About(){return <><DemoNotice/><header className="topbar"><div className="container"><Link className="brand" href="/"><span className="brand-mark">P</span>PermitPilot</Link></div></header><main className="container section" style={{maxWidth:800}}><p className="eyebrow">Methodology & limitations</p><h1 style={{fontSize:"3.5rem"}}>Clear boundaries build trust.</h1><h3>Deterministic selection</h3><p>Permit requirements are selected by versioned municipality rules, never by a language model. The evaluation trace records the rule and matching inputs.</p><h3>Planning ranges</h3><p>Timeline dates are configurable ranges using business-day scheduling. They are not guarantees or live municipal data. Dependencies cannot begin before prerequisites.</p><h3>Sources</h3><p>The included municipality, requirements, contacts, excerpts, and planning ranges are fictional demonstration data. Missing verified evidence produces a confirmation warning rather than a fabricated citation.</p><h3>Privacy and files</h3><p>This browser demo stores project state on this device. The API validates supported file formats and models private storage, but production authentication, durable PostgreSQL persistence, signed object-storage URLs, and malware scanning require deployment configuration.</p><Link className="button primary" href="/intake">Start a roadmap</Link></main></>}
+import Link from "next/link";
+import { AppShell } from "@/components/layout/AppShell";
+
+export default function AboutPage() {
+  return (
+    <AppShell>
+      <main id="main" className="mx-auto max-w-3xl px-4 py-12">
+        <p className="eyebrow">Methodology and limitations</p>
+        <h1 className="mt-2 font-serif text-4xl text-[var(--navy)]">Clear boundaries build trust.</h1>
+        <div className="mt-8 space-y-6 text-[var(--ink)]">
+          <section>
+            <h2 className="font-serif text-2xl text-[var(--navy)]">Deterministic selection</h2>
+            <p className="mt-2 text-[var(--muted)]">
+              Permit requirements are selected by versioned rules, never by a language model. The evaluation trace
+              records the matching rule, fields, and reason. The same project parameters always produce the same roadmap.
+            </p>
+          </section>
+          <section>
+            <h2 className="font-serif text-2xl text-[var(--navy)]">Planning ranges</h2>
+            <p className="mt-2 text-[var(--muted)]">
+              Timeline dates are configurable business-day ranges. They are not guarantees or live municipal data.
+              Dependent steps cannot begin before their prerequisites finish.
+            </p>
+          </section>
+          <section>
+            <h2 className="font-serif text-2xl text-[var(--navy)]">Citations</h2>
+            <p className="mt-2 text-[var(--muted)]">
+              Code badges such as IBC § 1004.1 are demonstration references to published model codes or fictional Demo
+              Harbor sections. They are not an official determination of what Demo Harbor or any other municipality
+              requires.
+            </p>
+          </section>
+          <section>
+            <h2 className="font-serif text-2xl text-[var(--navy)]">Fees and files</h2>
+            <p className="mt-2 text-[var(--muted)]">
+              Fee totals are estimates from demonstration rates. Uploaded files stay in this browser session and are
+              limited to PDF, PNG, JPEG, and WebP files of 10 MB or less.
+            </p>
+          </section>
+        </div>
+        <Link className="button primary mt-8" href="/intake">
+          Start a roadmap
+        </Link>
+      </main>
+    </AppShell>
+  );
+}

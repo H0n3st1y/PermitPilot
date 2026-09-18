@@ -29,6 +29,10 @@
   --blocked: #a0302e;
   --blocked-soft: #f8e6e3;
   --focus: #0b57d0;
+  /* The one step holding the project up. Distinct from --attention, which marks
+     any step needing work; the bottleneck is the single highest-impact one. */
+  --bottleneck: #9a6400;
+  --bottleneck-soft: #fcf1d6;
 
   --r-sm: 4px;
   --r-md: 6px;
@@ -78,6 +82,8 @@ html.high-contrast {
   --blocked: #ff8080;
   --blocked-soft: #000;
   --focus: #ffff00;
+  --bottleneck: #ffd000;
+  --bottleneck-soft: #000;
   --shadow-float: none;
   --grain: none;
   color-scheme: dark;
@@ -1732,7 +1738,588 @@ textarea.input,
   }
 }
 
-/* ============ 15. Scroll-linked motion ============
+/* ============ 15. Language & reading level ============ */
+
+.plain-flag {
+  display: none;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  padding: 0.2rem 0.45rem;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+
+.plain-flag:hover {
+  border-color: var(--ink-2);
+  color: var(--ink);
+}
+
+@media (min-width: 560px) {
+  .plain-flag {
+    display: inline-flex;
+  }
+}
+
+/* ============ 16. Dependency graph ============ */
+
+.graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.875rem;
+  color: var(--ink-2);
+}
+
+.graph-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.legend-chip {
+  height: 0.75rem;
+  width: 0.75rem;
+  flex-shrink: 0;
+  border: 2px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+}
+
+.legend-approved {
+  border-color: var(--ok);
+  background: var(--ok-soft);
+}
+
+.legend-in_review {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.legend-ready {
+  border-color: var(--primary);
+}
+
+.legend-blocked {
+  border-color: var(--blocked);
+  background: var(--blocked-soft);
+}
+
+.legend-not_started {
+  border-style: dashed;
+}
+
+.legend-bottleneck {
+  border-color: var(--bottleneck);
+  border-width: 3px;
+  background: var(--bottleneck-soft);
+}
+
+.legend-critical {
+  border-style: dashed;
+  border-color: var(--ink-2);
+}
+
+.graph-canvas {
+  height: clamp(26rem, 62vh, 40rem);
+  overflow: hidden;
+}
+
+/* React Flow paints its own chrome; these bring it into the design system. */
+.graph-canvas .react-flow__attribution {
+  background: transparent;
+  font-size: 0.7rem;
+}
+
+.graph-canvas .react-flow__controls-button {
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  fill: var(--ink-2);
+}
+
+.graph-canvas .react-flow__controls-button:hover {
+  background: var(--surface-sunken);
+}
+
+.graph-canvas .react-flow__handle {
+  border: 0;
+  background: var(--line-strong);
+  height: 5px;
+  width: 5px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.high-contrast .graph-canvas .react-flow__handle {
+  background: #fff;
+}
+
+/* ---- nodes ---- */
+
+.gnode {
+  height: 112px;
+  width: 252px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  transition:
+    border-color var(--t-med) var(--ease-out),
+    background-color var(--t-med) var(--ease-out),
+    box-shadow var(--t-med) var(--ease-out);
+}
+
+.gnode-hit {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  padding: 0.6rem 0.75rem;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.gnode-top {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.gnode-icon {
+  display: grid;
+  height: 1.15rem;
+  width: 1.15rem;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  color: var(--ink-2);
+}
+
+.gnode-state {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--ink-2);
+}
+
+.gnode-flag {
+  margin-left: auto;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-sm);
+  padding: 0 0.25rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.gnode-title {
+  font-size: 0.94rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ink);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.gnode-dept {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.gnode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: auto;
+  border-radius: var(--r-sm);
+  background: var(--bottleneck-soft);
+  padding: 0 0.3rem;
+  color: var(--bottleneck);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+/* State: icon, border, and the label above all carry it. */
+.gnode-approved {
+  border-color: var(--ok);
+}
+
+.gnode-approved .gnode-icon {
+  background: var(--ok);
+  color: var(--surface);
+}
+
+.gnode-approved .gnode-state {
+  color: var(--ok);
+}
+
+.gnode-in_review {
+  border-color: var(--primary);
+}
+
+.gnode-in_review .gnode-icon {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.gnode-in_review .gnode-state {
+  color: var(--primary);
+}
+
+.gnode-ready {
+  border-color: var(--primary);
+}
+
+.gnode-ready .gnode-icon {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.gnode-blocked {
+  border-color: var(--blocked);
+  background: var(--blocked-soft);
+}
+
+.gnode-blocked .gnode-icon {
+  background: var(--blocked);
+  color: var(--surface);
+}
+
+.gnode-blocked .gnode-state {
+  color: var(--blocked);
+}
+
+.gnode-not_started {
+  border-style: dashed;
+}
+
+/* Critical path: dashed outer ring, drawn outside the border so it stacks with
+   the bottleneck outline instead of replacing it. */
+.gnode-critical {
+  position: relative;
+}
+
+.gnode-critical::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: calc(var(--r-lg) + 4px);
+  pointer-events: none;
+}
+
+/* Bottleneck: gold outline, always accompanied by the text badge. */
+.gnode-bottleneck {
+  border-color: var(--bottleneck);
+  box-shadow: inset 0 0 0 2px var(--bottleneck);
+}
+
+.gnode-bottleneck.gnode-critical::after {
+  border-color: var(--bottleneck);
+}
+
+.gnode .gnode-hit:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.high-contrast .gnode {
+  border-width: 2px;
+}
+
+/* ---- edges ---- */
+
+.gedge .react-flow__edge-path {
+  stroke: var(--line-strong);
+  stroke-width: 1.75;
+  transition: stroke var(--t-med) var(--ease-out);
+}
+
+/* Prerequisite already approved: it no longer gates anything. */
+.gedge-satisfied .react-flow__edge-path {
+  stroke: var(--ok);
+}
+
+/* Still gating: drawn as a barrier rather than a connection. */
+.gedge-gating .react-flow__edge-path {
+  stroke-dasharray: 5 4;
+}
+
+.gedge-bottleneck .react-flow__edge-path {
+  stroke: var(--bottleneck);
+  stroke-width: 2.5;
+}
+
+.high-contrast .gedge .react-flow__edge-path {
+  stroke: #fff;
+}
+
+/* ============ 17. Explainability drawer ============ */
+
+.drawer-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  justify-content: flex-end;
+  background: rgb(28 29 31 / 0.32);
+  animation: fade-in var(--t-med) var(--ease-out);
+}
+
+.drawer {
+  display: flex;
+  width: min(32rem, 100%);
+  flex-direction: column;
+  border-left: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  animation: drawer-in var(--t-med) var(--ease-out);
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+
+@media (max-width: 639px) {
+  .drawer-scrim {
+    align-items: flex-end;
+  }
+
+  .drawer {
+    max-height: 92vh;
+    width: 100%;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    animation-name: sheet-in;
+  }
+}
+
+.drawer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--line);
+  padding: 0.9rem 1rem 0.9rem 1.25rem;
+}
+
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+
+.drawer-foot {
+  border-top: 1px solid var(--line);
+  padding: 0.85rem 1.25rem;
+}
+
+.drawer-section {
+  margin-top: 1.5rem;
+}
+
+.drawer-section:first-of-type {
+  margin-top: 1.25rem;
+}
+
+.rule-id {
+  display: inline-block;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  padding: 0.1rem 0.4rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+}
+
+.answers {
+  display: grid;
+  gap: 1px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--line);
+  overflow: hidden;
+}
+
+.answer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  background: var(--surface);
+  padding: 0.5rem 0.7rem;
+}
+
+.answer dt {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.answer dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* The answers that actually fired the rule. */
+.answer.is-matched {
+  background: var(--primary-soft);
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.answer.is-matched dt {
+  color: var(--ink-2);
+}
+
+.answer.is-matched dd {
+  color: var(--primary);
+}
+
+.high-contrast .answer.is-matched {
+  outline: 1px solid var(--primary);
+  outline-offset: -1px;
+}
+
+.link-list {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.link-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.ethics {
+  margin-top: 1.75rem;
+  border-left: 3px solid var(--ok);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  background: var(--ok-soft);
+  padding: 0.8rem 1rem;
+}
+
+.ethics-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  color: var(--ok);
+}
+
+.high-contrast .ethics {
+  border: 1px solid #fff;
+  border-left-width: 4px;
+}
+
+/* ============ 18. Bottleneck radar ============ */
+
+.radar {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--bottleneck);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  padding: 1rem 1.1rem;
+}
+
+@media (min-width: 640px) {
+  .radar {
+    padding: 1.25rem 1.5rem;
+  }
+}
+
+.radar-clear {
+  border-left-color: var(--ok);
+}
+
+.radar-facts {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem 0 0;
+}
+
+@media (min-width: 720px) {
+  .radar-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem 1.5rem;
+  }
+}
+
+.radar-facts dt {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+.radar-facts dd {
+  margin: 0.15rem 0 0;
+  color: var(--ink);
+}
+
+.radar-blocked {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0.9rem 0 0;
+  padding: 0.7rem 0 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+
+.radar-blocked li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.94rem;
+}
+
+.radar-blocked .meta {
+  margin-left: auto;
+}
+
+.radar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+/* ============ 19. Scroll-linked motion ============
 
    Progress-based animations: they are driven by the scroll position, not by a
    clock, so nothing plays on its own and nothing is ever mid-flight when the
@@ -1811,7 +2398,7 @@ textarea.input,
   }
 }
 
-/* ============ 16. Motion overrides ============ */
+/* ============ 20. Motion overrides ============ */
 
 @media print {
   .reveal,

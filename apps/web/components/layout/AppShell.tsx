@@ -4,15 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { DemoNotice } from "@/components/DemoNotice";
 import { HeaderMenu } from "@/components/layout/HeaderMenu";
+import { PlainLanguageIndicator } from "@/components/layout/PlainLanguageIndicator";
 import { NAV } from "@/components/layout/nav";
-
+import { useCopy } from "@/lib/i18n/useCopy";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { t } = useCopy();
   return (
     <div className="flex min-h-screen flex-col">
       <a href="#main" className="skip-link">
-        Skip to content
+        {t("app.skipToContent")}
       </a>
       <DemoNotice />
       <header className="site-header">
@@ -23,16 +25,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </span>
             PermitPilot
           </Link>
-          <nav aria-label="Primary" className="flex items-center gap-4">
+          <nav aria-label={t("nav.primary")} className="flex items-center gap-4">
             <ul className="hidden items-center gap-5 md:flex">
               {NAV.map((item) => (
                 <li key={item.href}>
-                  <Link className="nav-link" href={item.href} aria-current={pathname === item.href ? "page" : undefined}>
-                    {item.label}
+                  <Link
+                    className="nav-link"
+                    href={item.href}
+                    aria-current={pathname === item.href ? "page" : undefined}
+                  >
+                    {t(item.key)}
                   </Link>
                 </li>
               ))}
             </ul>
+            <PlainLanguageIndicator />
             <HeaderMenu pathname={pathname} />
           </nav>
         </div>
@@ -40,8 +47,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex-1">{children}</div>
       <footer className="site-footer">
         <div className="container flex flex-col gap-1 sm:flex-row sm:justify-between">
-          <p>PermitPilot is a planning aid, not legal advice. Confirm requirements, fees, and dates with each department.</p>
-          <Link href="/about">Methodology and limits</Link>
+          <p>{t("app.footerDisclaimer")}</p>
+          <Link href="/about">{t("app.methodology")}</Link>
         </div>
       </footer>
     </div>

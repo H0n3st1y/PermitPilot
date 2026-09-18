@@ -1,6 +1,7 @@
 "use client";
 
-import { PERMIT_STEP_STATUSES, STATUS_LABELS } from "@/lib/status";
+import { useLabels } from "@/lib/i18n/labels";
+import { PERMIT_STEP_STATUSES } from "@/lib/status";
 import type { PermitStep, PermitStepStatus } from "@/lib/types";
 
 export function StatusSelect({
@@ -14,17 +15,18 @@ export function StatusSelect({
   id?: string;
   className?: string;
 }) {
+  const labels = useLabels();
   return (
     <select
       id={id}
       className={`input ${className}`}
       value={step.status}
       onChange={(event) => onChange(event.target.value as PermitStepStatus)}
-      aria-label={id ? undefined : `Status for ${step.shortTitle}`}
+      aria-label={id ? undefined : `${step.shortTitle}`}
     >
       {PERMIT_STEP_STATUSES.map((status) => (
         <option key={status} value={status}>
-          {STATUS_LABELS[status]}
+          {labels.status(status)}
         </option>
       ))}
     </select>
@@ -33,5 +35,6 @@ export function StatusSelect({
 
 /** Permit status as a colored dot plus text. */
 export function StatusText({ status }: { status: PermitStepStatus }) {
-  return <span className={`status status-${status}`}>{STATUS_LABELS[status]}</span>;
+  const labels = useLabels();
+  return <span className={`status status-${status}`}>{labels.status(status)}</span>;
 }

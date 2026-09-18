@@ -2,16 +2,21 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
-import { Menu, SlidersHorizontal, X } from "lucide-react";
+import { Languages, Menu, SlidersHorizontal, X } from "lucide-react";
 import { NAV } from "@/components/layout/nav";
 import { useA11y } from "@/lib/a11y";
+import { useCopy } from "@/lib/i18n/useCopy";
 
 /**
  * Display options on desktop; navigation plus display options on mobile.
  * Closes on Escape, outside click, and navigation, and returns focus to the trigger.
+ *
+ * The three switches are independent: high contrast, reading level, and
+ * language each persist separately and any combination is valid.
  */
 export function HeaderMenu({ pathname }: { pathname: string }) {
-  const { highContrast, plainLanguage, setHighContrast, setPlainLanguage } = useA11y();
+  const { highContrast, plainLanguage, locale, setHighContrast, setPlainLanguage, toggleLocale } = useA11y();
+  const { t } = useCopy();
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -52,29 +57,69 @@ export function HeaderMenu({ pathname }: { pathname: string }) {
       >
         {open ? <X size={16} aria-hidden /> : <Menu size={16} aria-hidden className="md:hidden" />}
         {open ? null : <SlidersHorizontal size={15} aria-hidden className="hidden md:block" />}
-        <span className="md:hidden">Menu</span>
-        <span className="hidden md:inline">Display</span>
+        <span className="md:hidden">{t("nav.menu")}</span>
+        <span className="hidden md:inline">{t("nav.display")}</span>
       </button>
       {open ? (
         <div id={panelId} className="menu-panel">
           <ul className="mb-2 border-b border-[var(--line)] pb-2 md:hidden">
             {NAV.map((item) => (
               <li key={item.href}>
-                <Link data-menu-item className="nav-link" href={item.href} aria-current={pathname === item.href ? "page" : undefined}>
-                  {item.label}
+                <Link
+                  data-menu-item
+                  className="nav-link"
+                  href={item.href}
+                  aria-current={pathname === item.href ? "page" : undefined}
+                >
+                  {t(item.key)}
                 </Link>
               </li>
             ))}
           </ul>
-          <p className="label px-2 pb-1">Display</p>
-          <button data-menu-item type="button" className="switch-row" aria-pressed={highContrast} onClick={() => setHighContrast(!highContrast)}>
-            High contrast
+          <p className="label px-2 pb-1">{t("nav.display")}</p>
+
+          <button
+            data-menu-item
+            type="button"
+            className="switch-row"
+            aria-pressed={highContrast}
+            onClick={() => setHighContrast(!highContrast)}
+          >
+            <span>
+              {t("a11y.highContrast")}
+              <span className="meta block">{t("a11y.highContrastHint")}</span>
+            </span>
             <span className="switch" aria-hidden />
           </button>
-          <button type="button" className="switch-row" aria-pressed={plainLanguage} onClick={() => setPlainLanguage(!plainLanguage)}>
+
+          <button
+            type="button"
+            className="switch-row"
+            aria-pressed={plainLanguage}
+            onClick={() => setPlainLanguage(!plainLanguage)}
+          >
             <span>
-              Plain English
-              <span className="meta block">Simpler wording. Requirements don&apos;t change.</span>
+              {t("a11y.plainLanguage")}
+              <span className="meta block">{t("a11y.plainLanguageHint")}</span>
+            </span>
+            <span className="switch" aria-hidden />
+          </button>
+
+          <button
+            type="button"
+            className="switch-row"
+            aria-pressed={locale === "es"}
+            lang={locale === "en" ? "es" : "en"}
+            onClick={toggleLocale}
+          >
+            <span>
+              <span className="inline-flex items-center gap-1.5">
+                <Languages size={15} aria-hidden />
+                {t("a11y.language")}
+              </span>
+              <span className="meta block" lang={locale}>
+                {t("a11y.languageHint")}
+              </span>
             </span>
             <span className="switch" aria-hidden />
           </button>

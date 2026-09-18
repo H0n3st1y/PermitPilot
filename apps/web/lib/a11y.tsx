@@ -1,46 +1,90 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { DEFAULT_LOCALE, isLocale, type Locale } from "@/lib/i18n/types";
 
+/**
+ * Display preferences: high contrast, reading level, and interface language.
+ *
+ * These are presentation only. None of them is passed to the rules engine, so
+ * no preference here can change which permits are required, what they depend
+ * on, or which documents they need. The three are independent: any combination
+ * is valid and each persists on its own.
+ */
 export interface A11yState {
   highContrast: boolean;
   plainLanguage: boolean;
+  locale: Locale;
   setHighContrast: (value: boolean) => void;
   setPlainLanguage: (value: boolean) => void;
+  setLocale: (value: Locale) => void;
+  /** Convenience for the Español switch, which is a two-way toggle in the UI. */
+  toggleLocale: () => void;
 }
 
 const A11yContext = createContext<A11yState | null>(null);
 const STORAGE_KEY = "permitpilot:a11y";
 
+interface StoredPreferences {
+  highContrast?: boolean;
+  plainLanguage?: boolean;
+  locale?: string;
+}
+
 export function A11yProvider({ children }: { children: React.ReactNode }) {
   const [highContrast, setHighContrast] = useState(false);
   const [plainLanguage, setPlainLanguage] = useState(false);
+  const [locale, setLocale] = useState<Locale>(DEFAULT_LOCALE);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
+    let stored: StoredPreferences | null = null;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) stored = JSON.parse(raw) as StoredPreferences;
+    } catch {
+      // A malformed preferences blob is not worth blocking the app over.
       try {
-        const parsed = JSON.parse(raw) as { highContrast?: boolean; plainLanguage?: boolean };
-        setHighContrast(Boolean(parsed.highContrast));
-        setPlainLanguage(Boolean(parsed.plainLanguage));
-      } catch {
         localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        // Storage is unavailable (private mode); defaults apply.
       }
+    }
+    if (stored) {
+      setHighContrast(Boolean(stored.highContrast));
+      setPlainLanguage(Boolean(stored.plainLanguage));
+      if (isLocale(stored.locale)) setLocale(stored.locale);
     }
     setHydrated(true);
   }, []);
 
   useEffect(() => {
     if (!hydrated) return;
-    document.documentElement.classList.toggle("high-contrast", highContrast);
-    document.documentElement.dataset.plain = plainLanguage ? "true" : "false";
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ highContrast, plainLanguage }));
-  }, [highContrast, plainLanguage, hydrated]);
+    const root = document.documentElement;
+    root.classList.toggle("high-contrast", highContrast);
+    root.dataset.plain = plainLanguage ? "true" : "false";
+    // Screen readers and hyphenation need the document language to follow the UI.
+    root.lang = locale;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ highContrast, plainLanguage, locale }));
+    } catch {
+      // Preferences simply do not persist when storage is unavailable.
+    }
+  }, [highContrast, plainLanguage, locale, hydrated]);
 
-  const value = useMemo(
-    () => ({ highContrast, plainLanguage, setHighContrast, setPlainLanguage }),
-    [highContrast, plainLanguage],
+  const toggleLocale = useCallback(() => setLocale((current) => (current === "en" ? "es" : "en")), []);
+
+  const value = useMemo<A11yState>(
+    () => ({
+      highContrast,
+      plainLanguage,
+      locale,
+      setHighContrast,
+      setPlainLanguage,
+      setLocale,
+      toggleLocale,
+    }),
+    [highContrast, plainLanguage, locale, toggleLocale],
   );
 
   return <A11yContext.Provider value={value}>{children}</A11yContext.Provider>;

@@ -12,7 +12,8 @@ import { loadProject, saveProject } from "@/lib/storage/projects";
 /** Opens the sample project, creating it on first visit. `?reset=1` restores the original sample. */
 function DemoLoader() {
   const router = useRouter();
-  const reset = useSearchParams().get("reset") === "1";
+  const params = useSearchParams();
+  const reset = params.get("reset") === "1";
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -27,14 +28,19 @@ function DemoLoader() {
           }
           saveProject(sampleProject());
         }
-        router.replace(`/projects/${SAMPLE_PROJECT_ID}`);
+        // Carry any view or step through the redirect, so a link straight to
+        // the graph or a single permit still lands where it points.
+        const forwarded = new URLSearchParams(params.toString());
+        forwarded.delete("reset");
+        const query = forwarded.toString();
+        router.replace(`/projects/${SAMPLE_PROJECT_ID}${query ? `?${query}` : ""}`);
       } catch (cause) {
         console.error("PermitPilot: could not open the sample project", cause);
         setError(cause instanceof Error ? cause.message : "The sample project could not be created.");
       }
     }
     void open();
-  }, [reset, router]);
+  }, [reset, params, router]);
 
   return (
     <main id="main" className="container-narrow py-16">

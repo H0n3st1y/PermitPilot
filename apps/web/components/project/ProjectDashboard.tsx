@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { DocumentVault } from "@/components/documents/DocumentVault";
 import { FeeSummary } from "@/components/fees/FeeSummary";
+import { WhyThisStepDrawer } from "@/components/graph/WhyThisStepDrawer";
 import { InspectionChecklists } from "@/components/inspections/InspectionChecklists";
 import { AppShell } from "@/components/layout/AppShell";
 import { FeedbackToast } from "@/components/project/FeedbackToast";
@@ -13,24 +15,29 @@ import { StepDetail } from "@/components/project/StepDetail";
 import { RoadmapOverview, type StepFocus } from "@/components/roadmap/RoadmapOverview";
 import { TimelineView } from "@/components/timeline/TimelineView";
 import { formatCurrency } from "@/lib/dates";
-import {
-  classifySteps,
-  detectBottlenecks,
-  displayStates,
-  nextActions,
-  projectProgress,
-  stepDocumentProgress,
-} from "@/lib/engine/progress";
-import { criticalPathIds } from "@/lib/engine/timeline";
+import { derivePermitState } from "@/lib/engine/permitState";
 import { useProject } from "@/lib/hooks/useProject";
+import type { PhraseKey } from "@/lib/i18n/phrases";
+import { useCopy } from "@/lib/i18n/useCopy";
+
+/**
+ * The graph pulls in a rendering library that nothing else needs, so it is
+ * fetched only when the Graph tab is opened. That keeps the roadmap, which is
+ * what most visitors land on, off the hook for the extra bytes.
+ */
+const PermitGraph = dynamic(
+  () => import("@/components/graph/PermitGraph").then((mod) => mod.PermitGraph),
+  { ssr: false, loading: () => <div className="skeleton h-96 w-full" aria-hidden /> },
+);
 
 const VIEWS = [
-  { id: "overview", label: "Roadmap" },
-  { id: "timeline", label: "Timeline" },
-  { id: "documents", label: "Documents" },
-  { id: "fees", label: "Fees" },
-  { id: "inspections", label: "Inspections" },
-] as const;
+  { id: "overview", key: "tab.roadmap" },
+  { id: "graph", key: "tab.graph" },
+  { id: "timeline", key: "tab.timeline" },
+  { id: "documents", key: "tab.documents" },
+  { id: "fees", key: "tab.fees" },
+  { id: "inspections", key: "tab.inspections" },
+] as const satisfies readonly { id: string; key: PhraseKey }[];
 
 export type ViewId = (typeof VIEWS)[number]["id"];
 
@@ -41,9 +48,11 @@ function isView(value: string | null): value is ViewId {
 export function ProjectDashboard({ id }: { id: string }) {
   const params = useSearchParams();
   const { state, view: derived, now, feedback, clearFeedback, ...actions } = useProject(id);
+  const { t } = useCopy();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const tabsRef = useRef<HTMLElement>(null);
   const [focusIntent, setFocusIntent] = useState<{ stepId: string; focus: StepFocus } | null>(null);
+  const [whyStepId, setWhyStepId] = useState<string | null>(null);
 
   const requested = params.get("view");
   const view: ViewId = isView(requested) ? requested : "overview";
@@ -82,28 +91,25 @@ export function ProjectDashboard({ id }: { id: string }) {
   }, [view, stepId]);
 
   const project = state.status === "ready" ? state.project : null;
-  const analysis = useMemo(() => {
-    if (!project || !derived) return null;
-    const { steps } = project.roadmap;
-    const states = classifySteps(steps, derived.forecast);
-    const bottlenecks = detectBottlenecks(steps, project.documents, derived.forecast, now);
-    const docTotals = steps.reduce(
-      (sum, step) => {
-        const progress = stepDocumentProgress(project.documents, step);
-        return { required: sum.required + progress.required, complete: sum.complete + progress.complete };
-      },
-      { required: 0, complete: 0 },
-    );
-    return {
-      states,
-      display: displayStates(states, bottlenecks),
-      bottlenecks,
-      actions: nextActions(steps, derived.forecast),
-      progress: projectProgress(steps),
-      critical: criticalPathIds(steps, derived.forecast),
-      docTotals,
-    };
-  }, [project, derived, now]);
+
+  /**
+   * The single source of truth. Every view below reads this one object, so a
+   * status change recomputes the roadmap, graph, timeline, and radar together
+   * and they can never disagree about what is blocked.
+   */
+  const permitState = useMemo(
+    () => (project && derived ? derivePermitState(project, derived.forecast, now) : null),
+    [project, derived, now],
+  );
+
+  const openStep = useCallback(
+    (next: string, focus?: StepFocus) => {
+      setFocusIntent(focus ? { stepId: next, focus } : null);
+      setWhyStepId(null);
+      navigate({ step: next });
+    },
+    [navigate],
+  );
 
   if (state.status === "loading") {
     return (
@@ -123,7 +129,7 @@ export function ProjectDashboard({ id }: { id: string }) {
     );
   }
 
-  if (state.status !== "ready" || !project || !derived || !analysis) {
+  if (state.status !== "ready" || !project || !derived || !permitState) {
     const corrupt = state.status === "corrupt";
     return (
       <AppShell>
@@ -148,14 +154,11 @@ export function ProjectDashboard({ id }: { id: string }) {
     );
   }
 
-  const selectedStep = stepId ? project.roadmap.steps.find((step) => step.id === stepId) : undefined;
-  const openStep = (next: string, focus?: StepFocus) => {
-    setFocusIntent(focus ? { stepId: next, focus } : null);
-    navigate({ step: next });
-  };
+  const selectedStep = stepId ? permitState.byId.get(stepId) : undefined;
+  const whyStep = whyStepId ? permitState.byId.get(whyStepId) : undefined;
   const inspectionsDone = derived.inspections.filter((item) => item.completed).length;
   const counts: Partial<Record<ViewId, string>> = {
-    documents: `${analysis.docTotals.complete}/${analysis.docTotals.required}`,
+    documents: `${permitState.docTotals.complete}/${permitState.docTotals.required}`,
     fees: formatCurrency(derived.fees.total).replace(/\.00$/, ""),
     inspections: derived.inspections.length ? `${inspectionsDone}/${derived.inspections.length}` : undefined,
   };
@@ -167,11 +170,11 @@ export function ProjectDashboard({ id }: { id: string }) {
           project={project}
           forecast={derived.forecast}
           inspections={derived.inspections}
-          progress={analysis.progress}
+          progress={permitState.progress}
           now={now}
         />
 
-        <nav ref={tabsRef} className="tabs mt-6" aria-label="Project sections">
+        <nav ref={tabsRef} className="tabs mt-6" aria-label={t("tab.sections")}>
           {VIEWS.map((item) => (
             <button
               key={item.id}
@@ -180,7 +183,7 @@ export function ProjectDashboard({ id }: { id: string }) {
               aria-current={view === item.id ? (selectedStep ? "true" : "page") : undefined}
               onClick={() => navigate({ view: item.id, step: null })}
             >
-              {item.label}
+              {t(item.key)}
               {counts[item.id] ? <span className="tab-count">{counts[item.id]}</span> : null}
             </button>
           ))}
@@ -205,13 +208,13 @@ export function ProjectDashboard({ id }: { id: string }) {
                 project={project}
                 step={selectedStep}
                 forecast={derived.forecast.steps.get(selectedStep.id)}
-                state={analysis.display.get(selectedStep.id) ?? "upcoming"}
-                critical={analysis.critical.has(selectedStep.id)}
-                bottlenecks={analysis.bottlenecks.filter((item) => item.stepId === selectedStep.id)}
+                state={permitState.display.get(selectedStep.id) ?? "upcoming"}
+                critical={permitState.critical.has(selectedStep.id)}
+                bottlenecks={permitState.bottlenecksByStep.get(selectedStep.id) ?? []}
                 fees={derived.fees}
                 inspections={derived.inspections.filter((item) => item.stepIds.includes(selectedStep.id))}
                 now={now}
-                backLabel={VIEWS.find((item) => item.id === view)?.label ?? "Roadmap"}
+                backLabel={t(VIEWS.find((item) => item.id === view)?.key ?? "tab.roadmap")}
                 initialFocus={focusIntent?.stepId === selectedStep.id ? focusIntent.focus : undefined}
                 onBack={() => navigate({ step: null })}
                 onOpenStep={openStep}
@@ -226,23 +229,22 @@ export function ProjectDashboard({ id }: { id: string }) {
                 headingRef={headingRef}
                 project={project}
                 forecast={derived.forecast}
-                display={analysis.display}
-                bottlenecks={analysis.bottlenecks}
-                actions={analysis.actions}
-                progress={analysis.progress}
-                critical={analysis.critical}
+                permitState={permitState}
                 now={now}
                 onOpenStep={openStep}
                 onStatusChange={actions.changeStatus}
               />
+            ) : null}
+            {!stepId && view === "graph" ? (
+              <PermitGraph headingRef={headingRef} state={permitState} onOpenNode={setWhyStepId} />
             ) : null}
             {!stepId && view === "timeline" ? (
               <TimelineView
                 headingRef={headingRef}
                 project={project}
                 forecast={derived.forecast}
-                display={analysis.display}
-                critical={analysis.critical}
+                display={permitState.display}
+                critical={permitState.critical}
                 now={now}
                 onOpenStep={openStep}
                 onStatusChange={actions.changeStatus}
@@ -271,6 +273,17 @@ export function ProjectDashboard({ id }: { id: string }) {
             ) : null}
           </div>
         </div>
+
+        {whyStep ? (
+          <WhyThisStepDrawer
+            step={whyStep}
+            project={project}
+            state={permitState}
+            onClose={() => setWhyStepId(null)}
+            onOpenStep={openStep}
+          />
+        ) : null}
+
         <FeedbackToast feedback={feedback} onDismiss={clearFeedback} />
       </main>
     </AppShell>

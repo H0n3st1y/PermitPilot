@@ -2,28 +2,24 @@
 
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { ChevronRight } from "lucide-react";
-import { StateMarker, DISPLAY_STATE_LABELS } from "@/components/common/StateMarker";
+import { StateMarker } from "@/components/common/StateMarker";
+import { BottleneckRadar } from "@/components/project/BottleneckRadar";
 import { NextActionCard } from "@/components/project/NextActionCard";
 import { useA11y } from "@/lib/a11y";
+import type { PermitState } from "@/lib/engine/permitState";
+import { useLabels } from "@/lib/i18n/labels";
+import { useCopy } from "@/lib/i18n/useCopy";
 import { formatDateRange, formatLongDate, localDay } from "@/lib/dates";
-import {
-  dependencyStages,
-  pendingDependencies,
-  stepDocumentProgress,
-  type DisplayState,
-  type ProjectProgress,
-} from "@/lib/engine/progress";
+import { pendingDependencies, stepDocumentProgress, type DisplayState } from "@/lib/engine/progress";
 import { estimateOccupantLoad } from "@/lib/engine/rules";
 import { usesValuation } from "@/lib/intake";
 import type { TimelineForecast } from "@/lib/engine/timeline";
-import { STATUS_LABELS } from "@/lib/status";
 import { recommendAction, situationFor, type StepActionKind } from "@/lib/stepActions";
 import {
   OCCUPANCY_LABELS,
   PROJECT_TYPE_LABELS,
   TRADE_LABELS,
   ZONE_LABELS,
-  type Bottleneck,
   type PermitStep,
   type PermitStepStatus,
   type Project,
@@ -51,11 +47,7 @@ export function RoadmapOverview({
   headingRef,
   project,
   forecast,
-  display,
-  bottlenecks,
-  actions,
-  progress,
-  critical,
+  permitState,
   now,
   onOpenStep,
   onStatusChange,
@@ -63,20 +55,18 @@ export function RoadmapOverview({
   headingRef: RefObject<HTMLHeadingElement | null>;
   project: Project;
   forecast: TimelineForecast;
-  display: Map<string, DisplayState>;
-  bottlenecks: Bottleneck[];
-  actions: PermitStep[];
-  progress: ProjectProgress;
-  critical: Set<string>;
+  /** The one derived permit state; this view renders it and decides nothing. */
+  permitState: PermitState;
   now: Date;
   onOpenStep: (stepId: string, focus?: StepFocus) => void;
   onStatusChange: (stepId: string, status: PermitStepStatus) => void;
 }) {
   const { plainLanguage } = useA11y();
+  const { t } = useCopy();
+  const labels = useLabels();
   const { config, roadmap } = project;
+  const { display, bottlenecks, actions, progress, critical, stages, byId } = permitState;
   const steps = roadmap.steps;
-  const byId = useMemo(() => new Map(steps.map((step) => [step.id, step])), [steps]);
-  const stages = useMemo(() => dependencyStages(steps), [steps]);
   const changed = useChangedStatuses(steps);
   const [hovered, setHovered] = useState<string | null>(null);
   const hoveredStep = hovered ? byId.get(hovered) : undefined;
@@ -94,8 +84,14 @@ export function RoadmapOverview({
     else onOpenStep(step.id, kind.kind);
   }
 
+  // The radar already names its own step and everything it is holding up, so
+  // nothing it covers is repeated here. One problem, one place.
+  const coveredByRadar = new Set(
+    permitState.radar ? [permitState.radar.step.id, ...permitState.radar.blocked.map((step) => step.id)] : [],
+  );
   const attention = bottlenecks.filter(
-    (item) => item.kind !== "critical_path_delay" && item.stepId !== focusStep?.id,
+    (item) =>
+      item.kind !== "critical_path_delay" && item.stepId !== focusStep?.id && !coveredByRadar.has(item.stepId),
   );
   const departments = new Set(steps.map((step) => step.department)).size;
 
@@ -147,6 +143,8 @@ export function RoadmapOverview({
           </section>
         )}
 
+        <BottleneckRadar state={permitState} onOpenStep={onOpenStep} onStatusChange={onStatusChange} />
+
         {attention.length > 0 ? (
           <section aria-labelledby="attention-heading">
             <h2 id="attention-heading" className="label mb-1">
@@ -185,11 +183,11 @@ export function RoadmapOverview({
               steps in the same stage can run at the same time.
             </p>
           </div>
-          <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-[var(--ink-2)]" aria-label="Legend">
+          <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-[var(--ink-2)]" aria-label={t("graph.legend")}>
             {LEGEND.map((state) => (
               <li key={state} className="inline-flex items-center gap-1.5">
                 <StateMarker state={state} />
-                <span aria-hidden>{DISPLAY_STATE_LABELS[state]}</span>
+                <span aria-hidden>{labels.displayState(state)}</span>
               </li>
             ))}
           </ul>
@@ -294,11 +292,13 @@ export function RoadmapOverview({
 }
 
 function FocusMeta({ step, forecast, now }: { step: PermitStep; forecast: TimelineForecast; now: Date }) {
+  const labels = useLabels();
   const entry = forecast.steps.get(step.id);
+  const statusLabel = labels.status(step.status);
   if (!entry) return null;
   return (
     <span className="num">
-      {STATUS_LABELS[step.status]} · expected decision {formatDateRange(entry.earliestEnd, entry.latestEnd, now)}
+      {statusLabel} · expected decision {formatDateRange(entry.earliestEnd, entry.latestEnd, now)}
       {entry.overdue ? " · past typical review time" : ""}
     </span>
   );
@@ -319,6 +319,7 @@ function NodeSummary({
   forecast: TimelineForecast;
   now: Date;
 }) {
+  const labels = useLabels();
   const entry = forecast.steps.get(step.id);
   const docs = stepDocumentProgress(project.documents, step);
   const pending = pendingDependencies(step, byId).map((dep) => dep.shortTitle).join(", ");
@@ -335,7 +336,7 @@ function NodeSummary({
   if (step.status === "preparing") return <>Preparing · {docs.complete}/{docs.required} docs</>;
   return (
     <>
-      {STATUS_LABELS[step.status]}
+      {labels.status(step.status)}
       {entry ? ` · decision ${formatDateRange(entry.earliestEnd, entry.latestEnd, now)}` : ""}
     </>
   );

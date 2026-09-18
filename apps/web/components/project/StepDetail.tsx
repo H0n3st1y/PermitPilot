@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type RefObject } from "react";
-import { AlertTriangle, ArrowLeft, Check, ChevronRight } from "lucide-react";
+import { useEffect, useRef, useState, type RefObject } from "react";
+import { AlertTriangle, ArrowLeft, ChevronRight } from "lucide-react";
 import { CitationList } from "@/components/citations/CodeCitationBadge";
 import { StateMarker } from "@/components/common/StateMarker";
 import { DocumentRow } from "@/components/documents/DocumentVault";
 import { FeeTable } from "@/components/fees/FeeSummary";
 import { ChecklistGroup } from "@/components/inspections/InspectionChecklists";
 import { FollowUpDraft } from "@/components/project/FollowUpDraft";
+import { RuleTrace } from "@/components/explain/RuleTrace";
 import { NextActionCard } from "@/components/project/NextActionCard";
+import { Section, StepLinks } from "@/components/project/StepSection";
+import { StepStatusPanel } from "@/components/project/StepStatusPanel";
 import type { StepFocus } from "@/components/roadmap/RoadmapOverview";
 import { StatusText } from "@/components/timeline/StatusSelect";
 import { useA11y } from "@/lib/a11y";
@@ -16,8 +19,6 @@ import { formatCurrency, formatDateRange } from "@/lib/dates";
 import { feesForStep } from "@/lib/engine/fees";
 import { findDocument, stepDocumentProgress, type DisplayState } from "@/lib/engine/progress";
 import type { StepForecast } from "@/lib/engine/timeline";
-import { describeMatchedCondition } from "@/lib/explain";
-import { PERMIT_STEP_STATUSES, STATUS_LABELS } from "@/lib/status";
 import { recommendAction, type StepActionKind } from "@/lib/stepActions";
 import type { Bottleneck, FeeBreakdown, InspectionItem, InspectionType, PermitStep, PermitStepStatus, Project } from "@/lib/types";
 
@@ -173,7 +174,7 @@ export function StepDetail({
 
         <aside className="max-w-xl lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:max-w-none" aria-label="Status">
           <div className="lg:sticky lg:top-32">
-            <StatusPanel step={step} pendingNames={pending.map((dep) => dep.shortTitle)} docsMissing={docs.missing.length} onStatusChange={onStatusChange} />
+            <StepStatusPanel step={step} pendingNames={pending.map((dep) => dep.shortTitle)} docsMissing={docs.missing.length} onStatusChange={onStatusChange} />
           </div>
         </aside>
 
@@ -181,19 +182,8 @@ export function StepDetail({
           <Section id="step-requirements" title="Why it's required">
             <p>{step.whyRequired}</p>
             {trace ? (
-              <div className="trace mt-3">
-                <p>
-                  <span className="font-semibold">Rule:</span> {trace.reason}
-                </p>
-                {trace.matchedConditions.length > 0 ? (
-                  <p className="mt-1">
-                    <span className="font-semibold">Your answers that matched:</span>{" "}
-                    {trace.matchedConditions.map(describeMatchedCondition).join("; ")}
-                  </p>
-                ) : null}
-                <p className="meta mt-1">
-                  Deterministic rule <code>{trace.ruleId}</code>. The same answers always produce the same requirement.
-                </p>
+              <div className="mt-3">
+                <RuleTrace trace={trace} rulesVersion={project.roadmap.rulesVersion} />
               </div>
             ) : null}
             <div className="mt-5 grid gap-5 sm:grid-cols-2">
@@ -287,144 +277,5 @@ export function StepDetail({
         </div>
       </div>
     </article>
-  );
-}
-
-function Section({
-  id,
-  title,
-  aside,
-  sectionRef,
-  children,
-}: {
-  id: string;
-  title: string;
-  aside?: React.ReactNode;
-  sectionRef?: RefObject<HTMLElement | null>;
-  children: React.ReactNode;
-}) {
-  return (
-    <section id={id} ref={sectionRef} aria-labelledby={`${id}-heading`} className="scroll-mt-32 border-t border-[var(--line)] pt-6">
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h3 id={`${id}-heading`} className="text-lg font-semibold">
-          {title}
-        </h3>
-        {aside ? <div className="text-sm font-semibold text-[var(--ink-2)]">{aside}</div> : null}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function StepLinks({ steps, empty, onOpenStep }: { steps: PermitStep[]; empty: string; onOpenStep: (id: string) => void }) {
-  if (steps.length === 0) return <p className="mt-1 text-[var(--ink-2)]">{empty}</p>;
-  return (
-    <ul className="mt-1">
-      {steps.map((item) => (
-        <li key={item.id}>
-          <button type="button" className="link link-target" onClick={() => onOpenStep(item.id)}>
-            {item.status === "approved" ? <Check size={15} className="text-[var(--ok)]" aria-hidden /> : null}
-            {item.title}
-            <span className="font-normal text-[var(--muted)]">· {STATUS_LABELS[item.status]}</span>
-            <ChevronRight size={15} aria-hidden />
-          </button>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function StatusPanel({
-  step,
-  pendingNames,
-  docsMissing,
-  onStatusChange,
-}: {
-  step: PermitStep;
-  pendingNames: string[];
-  docsMissing: number;
-  onStatusChange: (stepId: string, status: PermitStepStatus, note?: string) => void;
-}) {
-  const [status, setStatus] = useState<PermitStepStatus>(step.status);
-  const [note, setNote] = useState("");
-  const [syncedStatus, setSyncedStatus] = useState(step.status);
-  const selectId = useId();
-  const noteId = useId();
-  const warningId = useId();
-
-  // When the status changes elsewhere (e.g. the next-action button), follow it.
-  if (syncedStatus !== step.status) {
-    setSyncedStatus(step.status);
-    setStatus(step.status);
-  }
-
-  const submitting = status === "submitted" && step.status !== "submitted";
-  const warnings: string[] = [];
-  if (submitting && pendingNames.length) {
-    warnings.push(`${pendingNames.join(", ")} ${pendingNames.length === 1 ? "isn't" : "aren't"} approved yet. The department may not accept this application.`);
-  }
-  if (submitting && docsMissing) warnings.push(`${docsMissing} required document${docsMissing === 1 ? " is" : "s are"} missing.`);
-  const unchanged = status === step.status && !note.trim();
-
-  return (
-    <section className="surface surface-pad" aria-labelledby="status-heading">
-      <h3 id="status-heading" className="h3">
-        Status
-      </h3>
-      <form
-        className="mt-3 space-y-3"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (unchanged) return;
-          onStatusChange(step.id, status, note);
-          setNote("");
-        }}
-      >
-        <div className="field">
-          <label htmlFor={selectId} className="sr-only">
-            Status
-          </label>
-          <select id={selectId} value={status} onChange={(event) => setStatus(event.target.value as PermitStepStatus)} aria-describedby={warnings.length ? warningId : undefined}>
-            {PERMIT_STEP_STATUSES.map((value) => (
-              <option key={value} value={value}>
-                {STATUS_LABELS[value]}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="field">
-          <label htmlFor={noteId} className="text-sm">
-            Note <span className="font-normal text-[var(--muted)]">(optional)</span>
-          </label>
-          <input id={noteId} value={note} maxLength={200} placeholder="Reference number, reviewer name…" onChange={(event) => setNote(event.target.value)} />
-        </div>
-        {warnings.length ? (
-          <ul id={warningId} className="callout callout-attention space-y-1 text-sm">
-            {warnings.map((warning) => (
-              <li key={warning}>{warning}</li>
-            ))}
-          </ul>
-        ) : null}
-        <button type="submit" className="btn btn-secondary btn-block" disabled={unchanged}>
-          {status === step.status ? "Add note" : `Save as ${STATUS_LABELS[status]}`}
-        </button>
-      </form>
-      {step.history.length > 0 ? (
-        <div className="mt-5">
-          <h4 className="label">History</h4>
-          <ol className="mt-2 space-y-1.5 text-sm">
-            {[...step.history].reverse().map((event, index) => (
-              <li key={`${event.at}-${index}`} className="grid grid-cols-[5.5rem_1fr] gap-2">
-                <span className="num text-[var(--muted)]">{new Date(event.at).toLocaleDateString()}</span>
-                <span>
-                  <span className="font-semibold">{STATUS_LABELS[event.status]}</span>
-                  {event.note ? <span className="text-[var(--ink-2)]"> · {event.note}</span> : null}
-                </span>
-              </li>
-            ))}
-          </ol>
-        </div>
-      ) : null}
-    </section>
   );
 }

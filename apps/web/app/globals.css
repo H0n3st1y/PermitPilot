@@ -29,14 +29,26 @@
   --blocked: #a0302e;
   --blocked-soft: #f8e6e3;
   --focus: #0b57d0;
+  /* The one step holding the project up. Distinct from --attention, which marks
+     any step needing work; the bottleneck is the single highest-impact one. */
+  --bottleneck: #9a6400;
+  --bottleneck-soft: #fcf1d6;
 
   --r-sm: 4px;
   --r-md: 6px;
   --r-lg: 8px;
   --shadow-float: 0 1px 2px rgb(28 29 31 / 0.08), 0 8px 24px rgb(28 29 31 / 0.12);
   --ease: cubic-bezier(0.2, 0, 0, 1);
+  /* Decelerating curve for anything the eye tracks to a stop: reveals, sliding
+     underlines, disclosure. Lands softly instead of arriving at speed. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --t-fast: 120ms;
   --t-med: 180ms;
+  --t-slow: 240ms;
+
+  /* Monochrome grain over --bg. Not decoration: it gives the warm neutrals the
+     tooth of printed stock, which is the whole point of the paper palette. */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)' opacity='0.1'/%3E%3C/svg%3E");
 
   /* Legacy aliases used by utility classes. Prefer the tokens above in new code. */
   --paper: var(--bg);
@@ -70,7 +82,10 @@ html.high-contrast {
   --blocked: #ff8080;
   --blocked-soft: #000;
   --focus: #ffff00;
+  --bottleneck: #ffd000;
+  --bottleneck-soft: #000;
   --shadow-float: none;
+  --grain: none;
   color-scheme: dark;
 }
 
@@ -79,15 +94,37 @@ html.high-contrast {
 html {
   color-scheme: light;
   -webkit-text-size-adjust: 100%;
+  /* Reserve the scrollbar so entering a scrolling view never shifts the layout. */
+  scrollbar-gutter: stable;
+  scroll-behavior: smooth;
+  /* Clears the sticky tab bar when focus moves to a view heading. */
+  scroll-padding-top: 4rem;
+}
+
+@media (min-width: 768px) {
+  html {
+    /* Sticky header (3.5rem) + sticky tabs (2.875rem). */
+    scroll-padding-top: 7rem;
+  }
 }
 
 body {
   margin: 0;
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image: var(--grain);
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: 1rem;
   line-height: 1.55;
+}
+
+/* Kill orphans and ragged last lines. Costs nothing, reads noticeably better. */
+p,
+li,
+dd,
+figcaption,
+.meta {
+  text-wrap: pretty;
 }
 
 a {
@@ -106,6 +143,12 @@ a {
 
 ::selection {
   background: var(--primary-soft);
+  color: var(--ink);
+}
+
+input,
+textarea {
+  caret-color: var(--primary);
 }
 
 .skip-link {
@@ -158,6 +201,14 @@ a {
 }
 
 /* ============ 3. Typography ============ */
+
+/* Headings wrap into even lines instead of leaving one word stranded. */
+.display,
+.page-title,
+.h2,
+.h3 {
+  text-wrap: balance;
+}
 
 .display {
   font-family: var(--font-serif);
@@ -270,6 +321,10 @@ a {
   text-decoration: none;
 }
 
+.brand:hover .brand-mark {
+  transform: translateY(-1px);
+}
+
 .brand-mark {
   display: grid;
   height: 1.75rem;
@@ -281,6 +336,13 @@ a {
   font-family: var(--font-serif);
   font-size: 1rem;
   font-weight: 600;
+  /* Inset keyline: reads as a struck seal rather than a coloured square. */
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--on-primary) 30%, transparent);
+  transition: transform var(--t-med) var(--ease-out);
+}
+
+.high-contrast .brand-mark {
+  box-shadow: inset 0 0 0 1px currentColor;
 }
 
 .nav-link {
@@ -317,7 +379,7 @@ a {
   background: var(--surface);
   padding: 0.5rem;
   box-shadow: var(--shadow-float);
-  animation: pop-in var(--t-med) var(--ease);
+  animation: pop-in var(--t-med) var(--ease-out);
 }
 
 .menu-panel .nav-link {
@@ -413,11 +475,11 @@ a {
     background-color var(--t-fast) var(--ease),
     border-color var(--t-fast) var(--ease),
     color var(--t-fast) var(--ease),
-    transform var(--t-fast) var(--ease);
+    transform var(--t-fast) var(--ease-out);
 }
 
 .btn:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: translateY(1px) scale(0.99);
 }
 
 .btn:disabled,
@@ -517,6 +579,7 @@ label.btn:has(+ .file-input:focus-visible) {
 }
 
 .link {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -531,7 +594,30 @@ label.btn:has(+ .file-input:focus-visible) {
   cursor: pointer;
 }
 
-.link:hover {
+/* Sweeping rule instead of a snapped-on underline. Same affordance, no jump. */
+.link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.16em;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--t-med) var(--ease-out);
+}
+
+.link:hover::after,
+.link:focus-visible::after {
+  transform: scaleX(1);
+}
+
+.high-contrast .link::after {
+  display: none;
+}
+
+.high-contrast .link:hover {
   text-decoration: underline;
   text-underline-offset: 0.18em;
 }
@@ -775,7 +861,8 @@ label.btn:has(+ .file-input:focus-visible) {
   border-radius: 2px;
   background: var(--primary);
   transform: scaleX(0);
-  transition: transform var(--t-med) var(--ease);
+  transform-origin: left center;
+  transition: transform var(--t-med) var(--ease-out);
 }
 
 .tab:hover {
@@ -893,7 +980,7 @@ label.btn:has(+ .file-input:focus-visible) {
   border-radius: 999px;
   background: var(--ok);
   transform-origin: left center;
-  transition: transform 240ms var(--ease);
+  transition: transform var(--t-slow) var(--ease-out);
 }
 
 .high-contrast .progress {
@@ -1063,8 +1150,34 @@ textarea.input,
   transform: rotate(45deg);
 }
 
-.disclosure[open] > :not(summary) {
-  animation: fade-in var(--t-med) var(--ease);
+/* Fallback reveal. Browsers with ::details-content get the real height
+   transition below instead, so the two never run together. */
+@supports not selector(::details-content) {
+  .disclosure[open] > :not(summary) {
+    animation: fade-in var(--t-med) var(--ease);
+  }
+}
+
+@supports selector(::details-content) {
+  :root {
+    /* Lets block-size animate between 0 and auto. */
+    interpolate-size: allow-keywords;
+  }
+
+  .disclosure::details-content {
+    block-size: 0;
+    overflow: clip;
+    opacity: 0;
+    transition:
+      block-size var(--t-med) var(--ease-out),
+      opacity var(--t-med) var(--ease-out),
+      content-visibility var(--t-med) allow-discrete;
+  }
+
+  .disclosure[open]::details-content {
+    block-size: auto;
+    opacity: 1;
+  }
 }
 
 .stepper {
@@ -1184,6 +1297,34 @@ textarea.input,
   text-align: left;
   cursor: pointer;
   transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+
+/* Reinforces which row the pointer or focus owns, without shifting layout. */
+.node::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--line-strong);
+  opacity: 0;
+  transform: scaleY(0.3);
+  transition:
+    opacity var(--t-fast) var(--ease-out),
+    transform var(--t-med) var(--ease-out);
+}
+
+.node:hover::before,
+.node:focus-visible::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+.node-current::before,
+.node-attention::before {
+  background: var(--primary);
 }
 
 .node + .node {
@@ -1445,7 +1586,7 @@ textarea.input,
   background: var(--surface);
   padding: 0.9rem 1rem;
   box-shadow: var(--shadow-float);
-  animation: pop-in var(--t-med) var(--ease);
+  animation: pop-in var(--t-med) var(--ease-out);
 }
 
 @media (max-width: 639px) {
@@ -1459,6 +1600,7 @@ textarea.input,
     max-height: 70vh;
     overflow-y: auto;
     animation-name: sheet-in;
+    animation-timing-function: var(--ease-out);
   }
 }
 
@@ -1512,7 +1654,7 @@ textarea.input,
   font-size: 0.94rem;
   box-shadow: var(--shadow-float);
   pointer-events: auto;
-  animation: toast-in var(--t-med) var(--ease);
+  animation: toast-in var(--t-med) var(--ease-out);
 }
 
 .toast-error {
@@ -1593,6 +1735,685 @@ textarea.input,
   }
   100% {
     transform: scale(1);
+  }
+}
+
+/* ============ 15. Language & reading level ============ */
+
+.plain-flag {
+  display: none;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  padding: 0.2rem 0.45rem;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+
+.plain-flag:hover {
+  border-color: var(--ink-2);
+  color: var(--ink);
+}
+
+@media (min-width: 560px) {
+  .plain-flag {
+    display: inline-flex;
+  }
+}
+
+/* ============ 16. Dependency graph ============ */
+
+.graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.875rem;
+  color: var(--ink-2);
+}
+
+.graph-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.legend-chip {
+  height: 0.75rem;
+  width: 0.75rem;
+  flex-shrink: 0;
+  border: 2px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+}
+
+.legend-approved {
+  border-color: var(--ok);
+  background: var(--ok-soft);
+}
+
+.legend-in_review {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.legend-ready {
+  border-color: var(--primary);
+}
+
+.legend-blocked {
+  border-color: var(--blocked);
+  background: var(--blocked-soft);
+}
+
+.legend-not_started {
+  border-style: dashed;
+}
+
+.legend-bottleneck {
+  border-color: var(--bottleneck);
+  border-width: 3px;
+  background: var(--bottleneck-soft);
+}
+
+.legend-critical {
+  border-style: dashed;
+  border-color: var(--ink-2);
+}
+
+.graph-canvas {
+  height: clamp(26rem, 62vh, 40rem);
+  overflow: hidden;
+}
+
+/* React Flow paints its own chrome; these bring it into the design system. */
+.graph-canvas .react-flow__attribution {
+  background: transparent;
+  font-size: 0.7rem;
+}
+
+.graph-canvas .react-flow__controls-button {
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  fill: var(--ink-2);
+}
+
+.graph-canvas .react-flow__controls-button:hover {
+  background: var(--surface-sunken);
+}
+
+.graph-canvas .react-flow__handle {
+  border: 0;
+  background: var(--line-strong);
+  height: 5px;
+  width: 5px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.high-contrast .graph-canvas .react-flow__handle {
+  background: #fff;
+}
+
+/* ---- nodes ---- */
+
+.gnode {
+  height: 112px;
+  width: 252px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  transition:
+    border-color var(--t-med) var(--ease-out),
+    background-color var(--t-med) var(--ease-out),
+    box-shadow var(--t-med) var(--ease-out);
+}
+
+.gnode-hit {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  padding: 0.6rem 0.75rem;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.gnode-top {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.gnode-icon {
+  display: grid;
+  height: 1.15rem;
+  width: 1.15rem;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  color: var(--ink-2);
+}
+
+.gnode-state {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--ink-2);
+}
+
+.gnode-flag {
+  margin-left: auto;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-sm);
+  padding: 0 0.25rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.gnode-title {
+  font-size: 0.94rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ink);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.gnode-dept {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.gnode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: auto;
+  border-radius: var(--r-sm);
+  background: var(--bottleneck-soft);
+  padding: 0 0.3rem;
+  color: var(--bottleneck);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+/* State: icon, border, and the label above all carry it. */
+.gnode-approved {
+  border-color: var(--ok);
+}
+
+.gnode-approved .gnode-icon {
+  background: var(--ok);
+  color: var(--surface);
+}
+
+.gnode-approved .gnode-state {
+  color: var(--ok);
+}
+
+.gnode-in_review {
+  border-color: var(--primary);
+}
+
+.gnode-in_review .gnode-icon {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.gnode-in_review .gnode-state {
+  color: var(--primary);
+}
+
+.gnode-ready {
+  border-color: var(--primary);
+}
+
+.gnode-ready .gnode-icon {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.gnode-blocked {
+  border-color: var(--blocked);
+  background: var(--blocked-soft);
+}
+
+.gnode-blocked .gnode-icon {
+  background: var(--blocked);
+  color: var(--surface);
+}
+
+.gnode-blocked .gnode-state {
+  color: var(--blocked);
+}
+
+.gnode-not_started {
+  border-style: dashed;
+}
+
+/* Critical path: dashed outer ring, drawn outside the border so it stacks with
+   the bottleneck outline instead of replacing it. */
+.gnode-critical {
+  position: relative;
+}
+
+.gnode-critical::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: calc(var(--r-lg) + 4px);
+  pointer-events: none;
+}
+
+/* Bottleneck: gold outline, always accompanied by the text badge. */
+.gnode-bottleneck {
+  border-color: var(--bottleneck);
+  box-shadow: inset 0 0 0 2px var(--bottleneck);
+}
+
+.gnode-bottleneck.gnode-critical::after {
+  border-color: var(--bottleneck);
+}
+
+.gnode .gnode-hit:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.high-contrast .gnode {
+  border-width: 2px;
+}
+
+/* ---- edges ---- */
+
+.gedge .react-flow__edge-path {
+  stroke: var(--line-strong);
+  stroke-width: 1.75;
+  transition: stroke var(--t-med) var(--ease-out);
+}
+
+/* Prerequisite already approved: it no longer gates anything. */
+.gedge-satisfied .react-flow__edge-path {
+  stroke: var(--ok);
+}
+
+/* Still gating: drawn as a barrier rather than a connection. */
+.gedge-gating .react-flow__edge-path {
+  stroke-dasharray: 5 4;
+}
+
+.gedge-bottleneck .react-flow__edge-path {
+  stroke: var(--bottleneck);
+  stroke-width: 2.5;
+}
+
+.high-contrast .gedge .react-flow__edge-path {
+  stroke: #fff;
+}
+
+/* ============ 17. Explainability drawer ============ */
+
+.drawer-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  justify-content: flex-end;
+  background: rgb(28 29 31 / 0.32);
+  animation: fade-in var(--t-med) var(--ease-out);
+}
+
+.drawer {
+  display: flex;
+  width: min(32rem, 100%);
+  flex-direction: column;
+  border-left: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  animation: drawer-in var(--t-med) var(--ease-out);
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+
+@media (max-width: 639px) {
+  .drawer-scrim {
+    align-items: flex-end;
+  }
+
+  .drawer {
+    max-height: 92vh;
+    width: 100%;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    animation-name: sheet-in;
+  }
+}
+
+.drawer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--line);
+  padding: 0.9rem 1rem 0.9rem 1.25rem;
+}
+
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+
+.drawer-foot {
+  border-top: 1px solid var(--line);
+  padding: 0.85rem 1.25rem;
+}
+
+.drawer-section {
+  margin-top: 1.5rem;
+}
+
+.drawer-section:first-of-type {
+  margin-top: 1.25rem;
+}
+
+.rule-id {
+  display: inline-block;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  padding: 0.1rem 0.4rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+}
+
+.answers {
+  display: grid;
+  gap: 1px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--line);
+  overflow: hidden;
+}
+
+.answer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  background: var(--surface);
+  padding: 0.5rem 0.7rem;
+}
+
+.answer dt {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.answer dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* The answers that actually fired the rule. */
+.answer.is-matched {
+  background: var(--primary-soft);
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.answer.is-matched dt {
+  color: var(--ink-2);
+}
+
+.answer.is-matched dd {
+  color: var(--primary);
+}
+
+.high-contrast .answer.is-matched {
+  outline: 1px solid var(--primary);
+  outline-offset: -1px;
+}
+
+.link-list {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.link-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.ethics {
+  margin-top: 1.75rem;
+  border-left: 3px solid var(--ok);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  background: var(--ok-soft);
+  padding: 0.8rem 1rem;
+}
+
+.ethics-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  color: var(--ok);
+}
+
+.high-contrast .ethics {
+  border: 1px solid #fff;
+  border-left-width: 4px;
+}
+
+/* ============ 18. Bottleneck radar ============ */
+
+.radar {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--bottleneck);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  padding: 1rem 1.1rem;
+}
+
+@media (min-width: 640px) {
+  .radar {
+    padding: 1.25rem 1.5rem;
+  }
+}
+
+.radar-clear {
+  border-left-color: var(--ok);
+}
+
+.radar-facts {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem 0 0;
+}
+
+@media (min-width: 720px) {
+  .radar-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem 1.5rem;
+  }
+}
+
+.radar-facts dt {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+.radar-facts dd {
+  margin: 0.15rem 0 0;
+  color: var(--ink);
+}
+
+.radar-blocked {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0.9rem 0 0;
+  padding: 0.7rem 0 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+
+.radar-blocked li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.94rem;
+}
+
+.radar-blocked .meta {
+  margin-left: auto;
+}
+
+.radar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+/* ============ 19. Scroll-linked motion ============
+
+   Progress-based animations: they are driven by the scroll position, not by a
+   clock, so nothing plays on its own and nothing is ever mid-flight when the
+   user stops. Every rule here is an enhancement behind @supports plus a
+   reduced-motion guard, and every one animates opacity or transform only.
+   Firefox and older engines simply get the static layout. */
+
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@keyframes emerge {
+  to {
+    opacity: 1;
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    /* A section settles into place as it is scrolled to, and unsettles if the
+       user scrolls back. Content is never hidden without support for this. */
+    .reveal {
+      animation: reveal-in linear both;
+      animation-timeline: view();
+      animation-range: entry 10% entry 90%;
+    }
+  }
+}
+
+@supports (animation-timeline: scroll()) {
+  @media (min-width: 768px) and (prefers-reduced-motion: no-preference) {
+    /* Once the header is genuinely floating over scrolled content it earns a
+       shadow, and it fades in over the first 4rem instead of snapping on. */
+    .site-header::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      box-shadow: 0 6px 16px rgb(28 29 31 / 0.07);
+      animation: emerge linear both;
+      animation-timeline: scroll(root block);
+      animation-range: 0 4rem;
+    }
+
+    .high-contrast .site-header::after {
+      display: none;
+    }
+  }
+}
+
+/* A short cascade for one list that arrives as a unit. Used sparingly: a whole
+   page of staggered entrances reads as slow, not smooth. */
+@media (prefers-reduced-motion: no-preference) {
+  .stagger > * {
+    animation: fade-in var(--t-slow) var(--ease-out) both;
+  }
+
+  .stagger > *:nth-child(2) {
+    animation-delay: 50ms;
+  }
+
+  .stagger > *:nth-child(3) {
+    animation-delay: 100ms;
+  }
+
+  .stagger > *:nth-child(4) {
+    animation-delay: 150ms;
+  }
+
+  .stagger > *:nth-child(n + 5) {
+    animation-delay: 200ms;
+  }
+}
+
+/* ============ 20. Motion overrides ============ */
+
+@media print {
+  .reveal,
+  .stagger > * {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .site-header::after {
+    display: none;
+  }
+
+  body {
+    background-image: none;
   }
 }
 

@@ -34,6 +34,11 @@ Warm neutrals carry the page; one blue carries action; status colors appear only
 Legacy aliases (`--paper`, `--card`, `--navy`, `--warn`, `--danger`, `--info`) map onto these tokens so older utility
 classes keep working. Do not use aliases in new code.
 
+**Surface texture.** `--grain` is a tiled SVG noise image painted on `body` under `--bg`. It gives the warm
+neutrals the tooth of printed stock: legible as texture up close, invisible as noise at reading distance. It is
+the only non-flat fill in the system, and it is a property of the page, never of a component. High contrast and
+print set `--grain: none`.
+
 **High contrast mode** (`html.high-contrast`) swaps every token to black/white/yellow and adds visible borders on
 all indicators. Never hard-code a color outside tokens except in the high-contrast overrides.
 
@@ -128,11 +133,33 @@ Choice lists (radio/checkbox) are rows in a divided list, not separate cards.
 
 ## 8. Motion
 
-- 120ms for hover/press, 180ms for disclosure/popover/tab content, 240ms max for anything else.
-- Animate `opacity` and `transform` only; progress uses `transform: scaleX`.
+- 120ms (`--t-fast`) for hover/press, 180ms (`--t-med`) for disclosure/popover/tab content, 240ms (`--t-slow`)
+  max for anything else.
+- Two curves. `--ease` for state that snaps into place. `--ease-out` for anything the eye tracks to a stop:
+  reveals, the tab underline, the link rule, the disclosure, the progress fill, the button press.
+- Animate `opacity` and `transform` only; progress uses `transform: scaleX`. The one exception is
+  `::details-content`, where `block-size` is the thing being animated and there is no transform equivalent.
 - Animate only what changed: a status marker pulses once when its status changes; the rest of the roadmap
   stays still.
 - `prefers-reduced-motion: reduce` disables all transitions and animations. State must never depend on motion.
+
+### Scroll-linked motion
+
+Section 15 of `globals.css` holds animations driven by scroll position rather than by a clock, so nothing plays
+on its own and nothing is mid-flight when the user stops scrolling.
+
+| Class / target | Behaviour |
+| --- | --- |
+| `.reveal` | Settles a section in (14px rise + fade) across its own entry into the viewport. For sections, never for controls or anything above the fold that a user acts on immediately. |
+| `.stagger` | 50ms cascade across a list's direct children, capped at 200ms. One list per page at most: a page of staggered entrances reads as slow, not smooth. |
+| `.site-header::after` | Shadow fades in over the first 4rem of scroll, because a sticky header that has left the top of the page is genuinely floating (see section 5). ≥ 768px only, where the header is sticky. |
+
+Rules for anything added here:
+
+- Wrap it in `@supports` plus `@media (prefers-reduced-motion: no-preference)`. Engines without
+  `animation-timeline` get the static layout, which must be correct on its own.
+- Never hide content that has no way to be revealed. `@media print` forces every enhanced element to its resting
+  state, because scroll-driven animations never run on paper and the page would otherwise print blank.
 
 ## 9. Responsive rules
 

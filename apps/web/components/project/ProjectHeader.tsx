@@ -6,6 +6,7 @@ import { formatDateRange, formatLongDate } from "@/lib/dates";
 import type { ProjectProgress } from "@/lib/engine/progress";
 import type { TimelineForecast } from "@/lib/engine/timeline";
 import { buildProjectCalendar, downloadBlob, slugify } from "@/lib/ics";
+import { useCopy } from "@/lib/i18n/useCopy";
 import { SAMPLE_PROJECT_ID } from "@/lib/sample";
 import { PROJECT_TYPE_LABELS, ZONE_LABELS, type InspectionItem, type Project } from "@/lib/types";
 
@@ -23,6 +24,7 @@ export function ProjectHeader({
   progress: ProjectProgress;
   now: Date;
 }) {
+  const { t } = useCopy();
   const target = project.config.targetDate;
   const lateForTarget = Boolean(target && !progress.complete && forecast.latestFinish > target);
 
@@ -35,8 +37,8 @@ export function ProjectHeader({
     <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div className="min-w-0">
         <p className="meta">
-          {project.id === SAMPLE_PROJECT_ID ? "Sample project · " : ""}
-          {PROJECT_TYPE_LABELS[project.config.projectType]} · {project.config.squareFootage.toLocaleString()} sq ft ·{" "}
+          {project.id === SAMPLE_PROJECT_ID ? `${t("header.sampleProject")} · ` : ""}
+          {PROJECT_TYPE_LABELS[project.config.projectType]} · {t("header.squareFeet", { value: project.config.squareFootage.toLocaleString() })} ·{" "}
           {ZONE_LABELS[project.config.zone]}
         </p>
         <h1 className="page-title mt-1 break-words">{project.config.name}</h1>
@@ -45,7 +47,7 @@ export function ProjectHeader({
             <div
               className="progress w-28"
               role="progressbar"
-              aria-label="Steps approved"
+              aria-label={t("header.stepsApproved")}
               aria-valuemin={0}
               aria-valuemax={progress.total}
               aria-valuenow={progress.approved}
@@ -54,28 +56,30 @@ export function ProjectHeader({
               <span style={{ transform: `scaleX(${progress.total ? progress.approved / progress.total : 0})` }} />
             </div>
             <span className="num font-semibold">
-              {progress.approved} of {progress.total} approved
+              {t("header.approvedCount", { approved: progress.approved, total: progress.total })}
             </span>
           </div>
           <span className="num text-[var(--ink-2)]">
             {progress.complete
-              ? "All steps complete"
-              : `Projected finish ${formatDateRange(forecast.earliestFinish, forecast.latestFinish, now)}`}
+              ? t("header.allComplete")
+              : t("header.projectedFinish", {
+                  range: formatDateRange(forecast.earliestFinish, forecast.latestFinish, now),
+                })}
           </span>
           {target ? (
             <span className={lateForTarget ? "font-semibold text-[var(--attention)]" : "text-[var(--muted)]"}>
-              Target {formatLongDate(target)}
-              {lateForTarget ? " (at risk)" : ""}
+              {t("header.target", { date: formatLongDate(target) })}
+              {lateForTarget ? t("header.atRisk") : ""}
             </span>
           ) : null}
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2 sm:flex">
         <Link className="btn btn-secondary btn-sm" href={`/intake?edit=${encodeURIComponent(project.id)}`}>
-          <Pencil size={14} aria-hidden /> Edit details
+          <Pencil size={14} aria-hidden /> {t("header.editDetails")}
         </Link>
         <button type="button" className="btn btn-secondary btn-sm" onClick={exportCalendar}>
-          <CalendarArrowDown size={14} aria-hidden /> Add to calendar
+          <CalendarArrowDown size={14} aria-hidden /> {t("header.addToCalendar")}
         </button>
       </div>
     </header>

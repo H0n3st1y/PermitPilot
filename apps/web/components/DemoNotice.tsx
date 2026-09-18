@@ -1,11 +1,15 @@
+"use client";
+
 import Link from "next/link";
+import { useCopy } from "@/lib/i18n/useCopy";
 
 export function DemoNotice() {
+  const { t } = useCopy();
   return (
     <div className="demo-banner" role="note">
-      <strong>Demo data.</strong> Demo Harbor is a fictional town.{" "}
+      <strong>{t("demo.label")}</strong> {t("demo.body")}{" "}
       <Link href="/about" className="text-[var(--ink)] underline">
-        What this means
+        {t("demo.whatThisMeans")}
       </Link>
     </div>
   );

@@ -19,8 +19,8 @@ const serif = Source_Serif_4({
 });
 
 export const metadata: Metadata = {
-  title: "PermitPilot — Know the path. Track the progress.",
-  description: "Interactive demonstration permit roadmaps for residents and small businesses.",
+  title: "PermitPilot: permit roadmaps you can check",
+  description: "Permits, documents, fees, timelines, and inspection prep for residents and small businesses, from deterministic rules with checkable sources.",
   manifest: "/manifest.webmanifest",
 };
 

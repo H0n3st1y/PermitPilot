@@ -1,3 +1,12 @@
+/**
+ * Demo Harbor fee configuration.
+ *
+ * Demo Harbor is fictional, so no rate here is "official". Rates are planning
+ * figures used to demonstrate how fees are itemized. Amounts that depend only on
+ * a flat rate are labelled "estimated"; amounts derived from a rate formula and
+ * the project's inputs are labelled "calculated". Fees we know exist but cannot
+ * price are "unknown" and never contribute to totals.
+ */
 export const FEE_SCHEDULE = {
   buildingPermitBase: 75,
   buildingPermitPerThousand: 12,
@@ -22,9 +31,9 @@ export const FEE_SCHEDULE = {
   occupancyCertificate: 40,
   finalInspection: 85,
   technologySurchargeRate: 0.035,
-  stateSurchargePerPermit: 4.5,
 } as const;
 
+/** IBC 2021 Table 1004.5 occupant-load factors (gross sq ft per occupant). */
 export const OCCUPANT_LOAD_FACTORS: Record<string, { factor: number; basis: string }> = {
   residential: { factor: 200, basis: "IBC Table 1004.5 residential" },
   business: { factor: 150, basis: "IBC Table 1004.5 business" },

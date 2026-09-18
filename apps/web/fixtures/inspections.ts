@@ -1,7 +1,16 @@
 import { CITATIONS } from "@/fixtures/citations";
-import type { InspectionItem, InspectionType } from "@/lib/types";
+import type { ConditionNode, InspectionItem, InspectionType } from "@/lib/types";
 
-type Template = Omit<InspectionItem, "completed">;
+/**
+ * Inspection preparation templates. `appliesWhen` is evaluated by the same
+ * deterministic condition engine as the permit rules, against the project config
+ * plus `occupantLoad` and `stepIds`. Items without a condition always apply.
+ */
+export type InspectionTemplate = Omit<InspectionItem, "completed" | "stepIds"> & {
+  appliesWhen?: ConditionNode;
+};
+
+type Template = InspectionTemplate;
 
 const BUILDING: Template[] = [
   {
@@ -12,7 +21,7 @@ const BUILDING: Template[] = [
     description: "The approved street address is posted so inspectors and emergency responders can identify the site.",
     plainLanguage: "Put the house or building number where it is easy to see from the street.",
     passingCriteria: "Numerals are at least 4 inches high, contrast with the background, and are visible from the public way.",
-    citation: CITATIONS.ibc105,
+    citation: CITATIONS.ifc505,
   },
   {
     id: "bldg-plans",
@@ -33,6 +42,7 @@ const BUILDING: Template[] = [
     plainLanguage: "Exits, stairs, and doors must match the drawings and stay clear.",
     passingCriteria: "Exit widths, door hardware, and stair/guard dimensions match the approved plan and IBC Chapter 10.",
     citation: CITATIONS.ibc1004,
+    appliesWhen: { field: "projectType", operator: "not_equals", value: "public_event" },
   },
   {
     id: "bldg-detectors",
@@ -42,7 +52,7 @@ const BUILDING: Template[] = [
     description: "Required smoke alarms and carbon monoxide alarms are installed and operational.",
     plainLanguage: "Working smoke and carbon monoxide alarms are in the required rooms.",
     passingCriteria: "Alarms are listed devices, powered as required, and test successfully.",
-    citation: CITATIONS.ibc110,
+    citation: CITATIONS.ifc907,
   },
   {
     id: "bldg-trades",
@@ -53,6 +63,12 @@ const BUILDING: Template[] = [
     plainLanguage: "Any wiring, pipes, or ducts that were required must already have passed their own inspections.",
     passingCriteria: "Applicable trade inspections are approved before the final building inspection is requested.",
     citation: CITATIONS.ibc110,
+    appliesWhen: { any: [
+      { field: "trades", operator: "contains", value: "electrical" },
+      { field: "trades", operator: "contains", value: "plumbing" },
+      { field: "trades", operator: "contains", value: "mechanical" },
+      { field: "trades", operator: "contains", value: "gas" },
+    ] },
   },
   {
     id: "bldg-workmanship",
@@ -75,7 +91,7 @@ const FIRE: Template[] = [
     description: "Portable fire extinguishers are the correct type, mounted, and currently tagged.",
     plainLanguage: "The right fire extinguishers are on the wall, easy to reach, and not expired.",
     passingCriteria: "Extinguishers are visible, unobstructed, and tagged within the last 12 months.",
-    citation: CITATIONS.ifc105,
+    citation: CITATIONS.ifc906,
   },
   {
     id: "fire-exits",
@@ -85,7 +101,7 @@ const FIRE: Template[] = [
     description: "Exit signs are illuminated and emergency lighting has been functionally tested.",
     plainLanguage: "Exit signs are lit and backup lights work if the power goes out.",
     passingCriteria: "Exit signs remain illuminated and emergency lights operate on backup power for the required duration.",
-    citation: CITATIONS.ifc105,
+    citation: CITATIONS.ifc1013,
   },
   {
     id: "fire-occupant-load",
@@ -95,7 +111,12 @@ const FIRE: Template[] = [
     description: "The approved occupant load is posted near the main entrance of assembly or public spaces.",
     plainLanguage: "A sign shows the maximum number of people allowed in the room.",
     passingCriteria: "Posted load matches the approved calculation and is durable and legible.",
-    citation: CITATIONS.ibc1004,
+    citation: CITATIONS.ifc1004,
+    appliesWhen: { any: [
+      { field: "occupancy", operator: "equals", value: "assembly" },
+      { field: "occupantLoad", operator: "greater_than_or_equal", value: 50 },
+      { field: "publicAttendance", operator: "equals", value: true },
+    ] },
   },
   {
     id: "fire-cooking",
@@ -106,6 +127,7 @@ const FIRE: Template[] = [
     plainLanguage: "If you cook with grease, the hood and fire-suppression system must be installed and tested.",
     passingCriteria: "Type I hood and suppression are listed, interlocked, and tagged; or cooking is limited so they are not required.",
     citation: CITATIONS.ifc904,
+    appliesWhen: { field: "foodPreparation", operator: "equals", value: true },
   },
   {
     id: "fire-lanes",
@@ -115,7 +137,7 @@ const FIRE: Template[] = [
     description: "Fire lanes, hydrants, and firefighter access paths are unobstructed.",
     plainLanguage: "Keep fire lanes and hydrants open so firefighters can reach the building.",
     passingCriteria: "No storage, parking, or event equipment blocks required fire access.",
-    citation: CITATIONS.ifc105,
+    citation: CITATIONS.ifc503,
   },
   {
     id: "fire-layout",
@@ -126,6 +148,7 @@ const FIRE: Template[] = [
     plainLanguage: "Do not rearrange tables, tents, or cooking equipment away from the approved layout.",
     passingCriteria: "Aisle widths and equipment locations match the approved fire plan.",
     citation: CITATIONS.ifc105,
+    appliesWhen: { field: "projectType", operator: "equals", value: "public_event" },
   },
 ];
 
@@ -138,7 +161,7 @@ const HEALTH: Template[] = [
     description: "Dedicated handwashing sinks are accessible, with soap, paper towels, and hot/cold water.",
     plainLanguage: "A sink just for washing hands has soap, towels, and running water.",
     passingCriteria: "Handwash sinks are unobstructed, labeled if required, and supplied during operation.",
-    citation: CITATIONS.foodcode,
+    citation: CITATIONS.fc5203,
   },
   {
     id: "health-surfaces",
@@ -148,7 +171,6 @@ const HEALTH: Template[] = [
     description: "Counters, equipment, and utensils are smooth, nonabsorbent, and in good repair.",
     plainLanguage: "Food-prep surfaces should be smooth and easy to clean, not cracked or wooden where food sits.",
     passingCriteria: "Food-contact surfaces meet Food Code cleanability requirements.",
-    citation: CITATIONS.foodcode,
   },
   {
     id: "health-cold-hold",
@@ -158,7 +180,7 @@ const HEALTH: Template[] = [
     description: "Cold-holding equipment maintains 41°F (5°C) or below with an accurate thermometer.",
     plainLanguage: "Fridges keep food at 41°F or colder. Keep a thermometer inside.",
     passingCriteria: "Measured cold-hold temperatures are 41°F or below; thermometers are present and calibrated.",
-    citation: CITATIONS.foodcode,
+    citation: CITATIONS.fc3501,
   },
   {
     id: "health-cfp",
@@ -168,7 +190,7 @@ const HEALTH: Template[] = [
     description: "A certified food protection manager is identified and present as required.",
     plainLanguage: "Someone with a food-safety certificate is in charge while you operate.",
     passingCriteria: "A current certified food protection manager certificate is available on site.",
-    citation: CITATIONS.foodcode,
+    citation: CITATIONS.fc2102,
   },
   {
     id: "health-pest",
@@ -178,7 +200,6 @@ const HEALTH: Template[] = [
     description: "Outer openings are protected with screens, door sweeps, or self-closing doors.",
     plainLanguage: "Doors and windows should keep insects and rodents out.",
     passingCriteria: "No unscreened openings; no evidence of infestation.",
-    citation: CITATIONS.foodcode,
   },
   {
     id: "health-warewash",
@@ -188,7 +209,6 @@ const HEALTH: Template[] = [
     description: "A three-compartment sink or approved dishwasher is installed with sanitizer and test kit.",
     plainLanguage: "You have a way to wash, rinse, and sanitize dishes, plus a way to check the sanitizer.",
     passingCriteria: "Wash/rinse/sanitize sequence is available; sanitizer concentration can be verified.",
-    citation: CITATIONS.foodcode,
   },
 ];
 
@@ -198,11 +218,6 @@ const BY_TYPE: Record<InspectionType, Template[]> = {
   health: HEALTH,
 };
 
-export function inspectionTemplates(types: InspectionType[]): InspectionItem[] {
-  return types.flatMap((type) =>
-    BY_TYPE[type].map((item) => ({
-      ...item,
-      completed: false,
-    })),
-  );
+export function inspectionTemplates(type: InspectionType): InspectionTemplate[] {
+  return BY_TYPE[type];
 }

@@ -2,144 +2,174 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import {
-  ClipboardCheck,
-  Contrast,
-  FileStack,
-  GitCommitHorizontal,
-  Landmark,
-  Receipt,
-  Scale,
-} from "lucide-react";
+import { ArrowRight, Trash2 } from "lucide-react";
+import { StateMarker } from "@/components/common/StateMarker";
 import { AppShell } from "@/components/layout/AppShell";
-import { getLastProjectId, getProject } from "@/lib/store";
+import type { DisplayState } from "@/lib/engine/progress";
+import { deleteFiles } from "@/lib/storage/files";
+import { deleteProject, listProjects, loadProject, type ProjectSummary } from "@/lib/storage/projects";
 
-const FEATURES = [
+/** A static excerpt of the sample project's roadmap, used as a product preview. */
+const PREVIEW: { stage: string; steps: { title: string; detail: string; state: DisplayState }[] }[] = [
+  { stage: "Stage 1", steps: [{ title: "Zoning compatibility review", detail: "Approved", state: "completed" }] },
   {
-    icon: Landmark,
-    title: "Personalized roadmap",
-    body: "A deterministic rules engine turns project type, size, occupancy, and location into required permits, documents, and department steps.",
+    stage: "Stage 2",
+    steps: [
+      { title: "Fire-prevention review", detail: "Approved", state: "completed" },
+      { title: "Food establishment health permit", detail: "Review overdue: follow up", state: "attention" },
+      { title: "Electrical permit", detail: "1 document missing", state: "attention" },
+    ],
+  },
+  { stage: "Stage 3", steps: [{ title: "Local business registration", detail: "Blocked by Health permit", state: "blocked" }] },
+];
+
+const ANSWERS = [
+  {
+    title: "What you need",
+    body: "Permits, reviews, and documents chosen by fixed rules from your project's type, size, use, location, and trades. Each one says which rule selected it.",
   },
   {
-    icon: GitCommitHorizontal,
-    title: "Interactive timeline",
-    body: "See planning ranges, update Not Started / Submitted / In Review / Approved, and flag reviews that stall or block later work.",
+    title: "What it costs and how long",
+    body: "Itemized fees marked calculated, estimated, or unknown, and a timeline that re-forecasts from your real submission and approval dates.",
   },
   {
-    icon: Scale,
-    title: "Code citation badges",
-    body: "Every step carries model-code references such as IBC § 1004.1, with plain-language explanations and outbound official text.",
-  },
-  {
-    icon: FileStack,
-    title: "Document vault",
-    body: "Upload floor plans, menus, IDs, and trade scopes beside each permit step, with verification checkmarks for required files.",
-  },
-  {
-    icon: Receipt,
-    title: "Fee calculator",
-    body: "Itemized base fees and departmental surcharges driven by valuation, square footage, occupancy, and selected trades.",
-  },
-  {
-    icon: ClipboardCheck,
-    title: "Inspection checklists",
-    body: "Building, Fire, and Health readiness lists with passing criteria so you can prepare before an inspector arrives.",
-  },
-  {
-    icon: Contrast,
-    title: "Accessibility mode",
-    body: "High-contrast theme, Plain English summaries, keyboard-first controls, and a thumb-friendly layout on small screens.",
+    title: "Where it's written",
+    body: "Links to the official model-code sections behind each requirement. Anything we couldn't verify is labelled; nothing is invented.",
   },
 ];
 
 export default function HomePage() {
-  const [resumeHref, setResumeHref] = useState<string | null>(null);
-  const [resumeName, setResumeName] = useState<string | null>(null);
+  const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const id = getLastProjectId();
-    if (!id) return;
-    const project = getProject(id);
-    if (!project) return;
-    setResumeHref(`/projects/${id}`);
-    setResumeName(project.config.name);
+    try {
+      setProjects(listProjects());
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Saved projects couldn't be read.");
+      setProjects([]);
+    }
   }, []);
+
+  async function remove(summary: ProjectSummary) {
+    if (!window.confirm(`Delete "${summary.name}" and its uploaded files from this browser? This can't be undone.`)) return;
+    try {
+      const result = loadProject(summary.id);
+      deleteProject(summary.id);
+      setProjects(listProjects());
+      if (result.status === "ok") await deleteFiles(result.project.documents.map((doc) => doc.id));
+    } catch (cause) {
+      console.error("PermitPilot: delete failed", cause);
+      setError(cause instanceof Error ? cause.message : "The project couldn't be deleted.");
+    }
+  }
+
+  const hasProjects = Boolean(projects && projects.length);
 
   return (
     <AppShell>
       <main id="main">
-        <section className="border-b border-[var(--line)] bg-[var(--card)]">
-          <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:py-16">
-            <div>
-              <p className="eyebrow">Municipal permit operations · Demo Harbor, MA</p>
-              <h1 className="mt-3 font-serif text-4xl leading-tight text-[var(--navy)] sm:text-5xl">
-                Know the path. Track the progress.
-              </h1>
-              <p className="mt-4 max-w-xl text-lg text-[var(--muted)]">
-                PermitPilot turns configured municipal rules into one roadmap: required permits, sequential department
-                steps, citations, fees, and inspection prep. This is a demonstration, not a legal determination.
+        <section className="border-b border-[var(--line)]">
+          <div className="container grid gap-10 py-8 md:py-16 lg:grid-cols-[1fr_27rem] lg:items-start lg:gap-16">
+            <div className="max-w-xl">
+              <h1 className="display">Every permit, document, and deadline, in order.</h1>
+              <p className="mt-4 text-[var(--ink-2)] md:text-lg">
+                Describe your project in a few questions. PermitPilot lays out what the city will ask for, what to do first,
+                what it may cost, how long it may take, and where each rule is written.
               </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link className="button primary" href="/intake">
-                  Start a project
+              <div className="mt-7 flex flex-wrap gap-3">
+                <Link className="btn btn-primary btn-lg" href="/intake">
+                  Start a project <ArrowRight size={17} aria-hidden />
                 </Link>
-                <Link className="button secondary" href="/demo">
-                  Open Harbor Kitchen demo
-                </Link>
-                <Link className="button secondary" href="/about">
-                  How it works
+                <Link className="btn btn-secondary btn-lg" href="/demo">
+                  Explore a sample
                 </Link>
               </div>
-              {resumeHref ? (
-                <p className="mt-4 text-sm">
-                  Resume{" "}
-                  <Link className="font-semibold text-[var(--navy)] underline" href={resumeHref}>
-                    {resumeName}
-                  </Link>
-                </p>
-              ) : null}
+              <p className="meta mt-4">No account needed. Your projects and files stay in this browser.</p>
             </div>
-            <aside className="panel" aria-label="Sample roadmap preview">
-              <p className="eyebrow">Sample sequence</p>
-              <ol className="mt-4 space-y-3">
-                {[
-                  ["Zoning review", "Approved", "DHZO § 4.2"],
-                  ["Health permit", "In Review", "Food Code § 8-301.11"],
-                  ["Fire review", "Not Started", "IFC § 105.5"],
-                  ["Business license", "Not Started", "DHMC § 12-18"],
-                ].map(([title, status, code]) => (
-                  <li key={title} className="flex items-center justify-between gap-3 border-b border-[var(--line)] pb-3 last:border-0">
-                    <div>
-                      <p className="font-semibold">{title}</p>
-                      <p className="font-mono text-xs text-[var(--muted)]">{code}</p>
-                    </div>
-                    <span className={`status-pill status-${status === "Approved" ? "approved" : status === "In Review" ? "in_review" : "not_started"}`}>
-                      {status}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            </aside>
+
+            {projects === null ? (
+              <div className="skeleton h-72" aria-hidden />
+            ) : hasProjects ? (
+              <section aria-labelledby="projects-heading" className="fade-in">
+                <h2 id="projects-heading" className="h3">
+                  Continue where you left off
+                </h2>
+                <ul className="divided surface mt-2">
+                  {projects!.map((project) => (
+                    <li key={project.id} className="flex items-center gap-2 pl-4 pr-1">
+                      <Link className="min-w-0 flex-1 py-3 no-underline" href={`/projects/${encodeURIComponent(project.id)}`}>
+                        <span className="block truncate font-semibold text-[var(--ink)]">{project.name}</span>
+                        <span className="meta num block">
+                          {project.approved} of {project.total} approved · updated {new Date(project.updatedAt).toLocaleDateString()}
+                        </span>
+                      </Link>
+                      <button type="button" className="icon-btn hover:text-[var(--blocked)]" onClick={() => void remove(project)} aria-label={`Delete ${project.name}`}>
+                        <Trash2 size={17} aria-hidden />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : (
+              <figure className="surface fade-in overflow-hidden" aria-label="Example roadmap from the Harbor Kitchen sample project">
+                <figcaption className="flex items-baseline justify-between border-b border-[var(--line)] px-4 py-3">
+                  <span className="font-semibold">Harbor Kitchen</span>
+                  <span className="meta">Sample roadmap</span>
+                </figcaption>
+                <ol className="divided">
+                  {PREVIEW.map((group) => (
+                    <li key={group.stage} className="px-4 py-3">
+                      <p className="label mb-2">{group.stage}</p>
+                      <ul className="space-y-2.5">
+                        {group.steps.map((step) => (
+                          <li key={step.title} className="flex items-start gap-2.5">
+                            <span className="mt-0.5">
+                              <StateMarker state={step.state} />
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block text-sm font-semibold leading-snug">{step.title}</span>
+                              <span className={`block text-sm state-text-${step.state}`}>{step.detail}</span>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ol>
+              </figure>
+            )}
           </div>
         </section>
-        <section className="mx-auto max-w-6xl px-4 py-12">
-          <h2 className="font-serif text-3xl text-[var(--navy)]">Core MVP</h2>
-          <p className="mt-2 max-w-2xl text-[var(--muted)]">
-            Rules are evaluated in a fixed order. The same inputs always produce the same permits, documents, fees, and
-            department sequence.
-          </p>
-          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map((feature) => {
-              const Icon = feature.icon;
-              return (
-                <li key={feature.title} className="panel">
-                  <Icon className="text-[var(--seal)]" size={22} aria-hidden />
-                  <h3 className="mt-3 font-serif text-xl text-[var(--navy)]">{feature.title}</h3>
-                  <p className="mt-2 text-[var(--muted)]">{feature.body}</p>
-                </li>
-              );
-            })}
-          </ul>
+
+        {error ? (
+          <div className="container mt-6">
+            <p className="callout callout-blocked" role="alert">
+              {error}
+            </p>
+          </div>
+        ) : null}
+
+        <section className="container py-12" aria-labelledby="answers-heading">
+          <h2 id="answers-heading" className="h2">
+            The answers you need before you apply
+          </h2>
+          <div className="mt-6 grid gap-8 md:grid-cols-3">
+            {ANSWERS.map((item) => (
+              <div key={item.title} className="border-t-2 border-[var(--ink)] pt-3">
+                <h3 className="h3">{item.title}</h3>
+                <p className="mt-1 text-[var(--ink-2)]">{item.body}</p>
+              </div>
+            ))}
+          </div>
+          <div className="callout callout-neutral mt-10 max-w-3xl">
+            <p className="font-semibold">What PermitPilot won&apos;t do</p>
+            <p className="mt-1 text-[var(--ink-2)]">
+              It won&apos;t give legal advice, submit applications, or guess at fees and rules it can&apos;t source. Every
+              requirement comes from deterministic rules, not AI. Confirm with your municipality before you rely on it.{" "}
+              <Link href="/about">How it works</Link>
+            </p>
+          </div>
         </section>
       </main>
     </AppShell>

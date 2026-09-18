@@ -1,53 +1,49 @@
 "use client";
 
 import Link from "next/link";
-import { A11yControls } from "@/components/a11y/A11yControls";
+import { usePathname } from "next/navigation";
 import { DemoNotice } from "@/components/DemoNotice";
+import { HeaderMenu } from "@/components/layout/HeaderMenu";
+import { NAV } from "@/components/layout/nav";
 
-export function AppShell({
-  children,
-  eyebrow,
-}: {
-  children: React.ReactNode;
-  eyebrow?: string;
-}) {
+
+export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   return (
-    <div className="min-h-screen">
+    <div className="flex min-h-screen flex-col">
       <a href="#main" className="skip-link">
         Skip to content
       </a>
       <DemoNotice />
-      <header className="border-b border-[var(--line)] bg-[var(--card)]">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center justify-between gap-4">
-            <Link href="/" className="brand">
-              <span className="brand-mark" aria-hidden>
-                P
-              </span>
-              <span>
-                PermitPilot
-                <span className="mt-0.5 block text-xs font-normal tracking-normal text-[var(--muted)]">
-                  Demo Harbor, MA
-                </span>
-              </span>
-            </Link>
-            {eyebrow ? <p className="hidden text-sm text-[var(--muted)] md:block">{eyebrow}</p> : null}
-          </div>
-          <nav className="flex flex-wrap items-center gap-3" aria-label="Primary">
-            <Link className="nav-link" href="/intake">
-              New project
-            </Link>
-            <Link className="nav-link" href="/demo">
-              Demo
-            </Link>
-            <Link className="nav-link" href="/about">
-              Methodology
-            </Link>
-            <A11yControls />
+      <header className="site-header">
+        <div className="container site-header-inner">
+          <Link href="/" className="brand">
+            <span className="brand-mark" aria-hidden>
+              P
+            </span>
+            PermitPilot
+          </Link>
+          <nav aria-label="Primary" className="flex items-center gap-4">
+            <ul className="hidden items-center gap-5 md:flex">
+              {NAV.map((item) => (
+                <li key={item.href}>
+                  <Link className="nav-link" href={item.href} aria-current={pathname === item.href ? "page" : undefined}>
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <HeaderMenu pathname={pathname} />
           </nav>
         </div>
       </header>
-      {children}
+      <div className="flex-1">{children}</div>
+      <footer className="site-footer">
+        <div className="container flex flex-col gap-1 sm:flex-row sm:justify-between">
+          <p>PermitPilot is a planning aid, not legal advice. Confirm requirements, fees, and dates with each department.</p>
+          <Link href="/about">Methodology and limits</Link>
+        </div>
+      </footer>
     </div>
   );
 }

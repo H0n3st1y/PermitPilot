@@ -1,7 +1,18 @@
+/**
+ * Shared domain types for PermitPilot.
+ *
+ * Data flow: ProjectConfig -> rules -> PermitStep[] (requirements + dependencies)
+ * -> derived timeline forecast, fees, documents, and inspections.
+ * Only user progress (statuses, uploads, checklist ticks) is persisted beside the
+ * generated roadmap; everything else is derived from config + steps on demand.
+ */
+
 export type PermitStepStatus =
   | "not_started"
+  | "preparing"
   | "submitted"
   | "in_review"
+  | "needs_changes"
   | "approved";
 
 export type ProjectType =
@@ -28,7 +39,14 @@ export type Trade = "electrical" | "plumbing" | "mechanical" | "gas";
 
 export type InspectionType = "building" | "fire" | "health";
 
+/**
+ * verified: section number, title, and URL were checked against the publisher.
+ * needs_review: a real source is expected but has not been checked yet.
+ * demo: fictional Demo Harbor reference; no official source exists.
+ */
 export type VerificationStatus = "verified" | "needs_review" | "demo";
+
+export type CitationSourceType = "model_code" | "federal_guidance" | "demo_ordinance";
 
 export type ConditionOperator =
   | "equals"
@@ -60,10 +78,16 @@ export interface CodeCitation {
   id: string;
   code: string;
   title: string;
+  /** Paraphrase of the provision. Never presented as a verbatim quotation. */
   summary: string;
   plainLanguage: string;
   url: string | null;
+  sourceType: CitationSourceType;
+  publisher: string;
+  edition?: string;
   verificationStatus: VerificationStatus;
+  /** ISO date the URL and section were last checked. */
+  verifiedOn?: string;
 }
 
 export interface DocumentRequirement {
@@ -73,6 +97,8 @@ export interface DocumentRequirement {
   description: string;
   acceptedTypes: string[];
   required: boolean;
+  /** Official blank form, when the municipality publishes one. Null means none is known. */
+  officialFormUrl?: string | null;
 }
 
 export interface UploadedDocument {
@@ -83,8 +109,16 @@ export interface UploadedDocument {
   size: number;
   mimeType: string;
   uploadedAt: string;
-  dataUrl?: string;
-  verified: boolean;
+  /** True when the file bytes are stored in this browser and can be downloaded again. */
+  stored: boolean;
+  /** Placeholder records that ship with the sample project (no file bytes). */
+  sample?: boolean;
+}
+
+export interface StatusEvent {
+  status: PermitStepStatus;
+  at: string;
+  note?: string;
 }
 
 export interface PermitStep {
@@ -97,12 +131,14 @@ export interface PermitStep {
   whyRequired: string;
   status: PermitStepStatus;
   statusChangedAt: string;
+  history: StatusEvent[];
   dependencies: string[];
   parallelWith: string[];
   documents: DocumentRequirement[];
   citations: CodeCitation[];
   estimatedMinDays: number;
   estimatedMaxDays: number;
+  /** Baseline plan computed when the roadmap was generated. */
   estimatedStartDate: string;
   estimatedEndDate: string;
   sequence: number;
@@ -121,16 +157,27 @@ export interface Roadmap {
   steps: PermitStep[];
   warnings: string[];
   traces: EvaluationTrace[];
-  estimatedTotalMinDays: number;
-  estimatedTotalMaxDays: number;
+  rulesVersion: string;
+  generatedAt: string;
 }
+
+/**
+ * official: published by the municipality, with a cited source.
+ * calculated: computed from a configured rate and your project inputs.
+ * estimated: a planning figure, not a published rate.
+ * unknown: a fee is expected but no amount can be given; excluded from totals.
+ */
+export type FeeBasisType = "official" | "calculated" | "estimated" | "unknown";
 
 export interface FeeLineItem {
   id: string;
+  stepId: string | null;
   label: string;
   department: string;
-  amount: number;
+  /** Null when basisType is "unknown". */
+  amount: number | null;
   basis: string;
+  basisType: FeeBasisType;
   kind: "base" | "surcharge";
 }
 
@@ -138,7 +185,9 @@ export interface FeeBreakdown {
   lineItems: FeeLineItem[];
   baseFees: number;
   surcharges: number;
+  /** Sum of every item with a known amount. */
   total: number;
+  unknownCount: number;
   currency: "USD";
   notes: string[];
 }
@@ -147,6 +196,8 @@ export interface InspectionItem {
   id: string;
   inspectionType: InspectionType;
   department: "Building" | "Fire" | "Health";
+  /** Roadmap steps that trigger this inspection. */
+  stepIds: string[];
   title: string;
   description: string;
   plainLanguage: string;
@@ -168,15 +219,18 @@ export interface ProjectConfig {
   publicAttendance: boolean;
   visitorCount?: number;
   desiredStartDate?: string;
+  /** Opening, event, or move-in date the user is working toward. */
+  targetDate?: string;
 }
 
 export interface Project {
+  schemaVersion: 2;
   id: string;
   config: ProjectConfig;
   roadmap: Roadmap;
   documents: UploadedDocument[];
-  inspections: InspectionItem[];
-  fees: FeeBreakdown;
+  /** Inspection checklist item id -> completed. */
+  inspectionProgress: Record<string, boolean>;
   createdAt: string;
   updatedAt: string;
 }
@@ -211,24 +265,10 @@ export interface StepDefinition {
 
 export interface Bottleneck {
   stepId: string;
-  kind: "blocked_dependency" | "stale_review" | "critical_path_delay";
+  kind: "blocked_dependency" | "stale_review" | "critical_path_delay" | "changes_requested" | "missing_documents";
   message: string;
   plainLanguage: string;
 }
-
-export const PERMIT_STEP_STATUSES: PermitStepStatus[] = [
-  "not_started",
-  "submitted",
-  "in_review",
-  "approved",
-];
-
-export const STATUS_LABELS: Record<PermitStepStatus, string> = {
-  not_started: "Not Started",
-  submitted: "Submitted",
-  in_review: "In Review",
-  approved: "Approved",
-};
 
 export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
   food_business: "Food business",

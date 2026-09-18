@@ -1,139 +1,84 @@
 # PermitPilot
 
-PermitPilot is a mobile-first civic workflow application that turns configured municipal permit rules into an interactive, timeline-driven roadmap. This repository contains a production-oriented MVP foundation with a polished no-login demonstration flow, a deterministic FastAPI rules/timeline service, multilingual UI, private-document safeguards, PWA support, and test coverage.
+PermitPilot turns a short project description into a permit roadmap: which permits and reviews apply, in what order, which documents each one needs, what it may cost, how long it may take, how to prepare for inspection, and where each requirement comes from. You then track the project to completion.
 
-> **Important:** The bundled “Demo Harbor, MA” municipality is fictional. Every included rule, requirement, contact, source, document, and timeline is demonstration data—not official guidance or a legal determination.
+> **Demo data.** The bundled municipality, Demo Harbor, MA, is fictional. Its local ordinances and fee schedule are demonstration data. Model-code citations (IBC, IFC, IPC, IMC, IFGC, NEC, FDA Food Code) link to the real publisher text and were checked on 2026-09-17, but local adoption is not verified. Nothing here is a legal determination.
 
-## Why PermitPilot
+## Main flow
 
-Municipal procedures are commonly split among departmental pages, forms, and PDFs. People can often find an individual application but cannot see prerequisites, parallel reviews, missing documents, expected planning ranges, or the next useful action. PermitPilot presents that work as one traceable project.
+Landing → Start project → 3-step intake → Roadmap → Timeline → Permit details → Documents → Fees → Inspection prep → Update status → Complete
 
-The application deliberately separates legal workflow selection from AI. A deterministic, versionable rules engine selects requirements, records an evaluation trace, builds dependencies, rejects cycles, and schedules ranges in business days. A future AI provider may translate or explain retrieved verified passages, but it cannot add/remove requirements, change fees or deadlines, or override dependencies.
+The dashboard always shows your next step, why it is next, and what is blocking progress. Views are URL-addressable (`/projects/<id>?view=timeline&step=health-permit`), so the back button and deep links work.
 
-## What works
+## Features
 
-- Responsive landing page, three-step conditional intake with local autosave, and anonymous demo access
-- Three complete demonstration workflows: home food business, room addition, and community event
-- Persistent browser demo projects, milestone status changes, completion/blocker calculation, and document organization
-- Checklist and responsive timeline views with sequential and parallel dependencies
-- Citation drawer with evidence status and explicit confirmation warnings
-- English/Spanish navigation, statuses, notices, and source framing without changing project state
-- Offline application shell, cached routes, reconnect indicator, manifest, and installable PWA icon
-- FastAPI endpoints for project creation/evaluation, timeline recalculation, status history, documents, sources, retrieval refusal, notifications, and health
-- File-size, file-type, and filename validation; private-storage metadata; explicit malware-scanning placeholder
-- Nested deterministic rule groups (`all`, `any`, `none`) and all requested comparison operators
-- Circular dependency checks, business-day calculations, parallel scheduling, and automated API/engine tests
+| Area | What works |
+| --- | --- |
+| Intake | Three-step form with inline validation, focus management, and a local draft autosave. Includes an optional start date and target date. |
+| Roadmap | Deterministic rules select the steps, departments, dependencies, and order. Each permit page shows the rule and the matched answers that selected it. |
+| Edit & re-run | Change project details, preview the added and removed steps, then apply. Progress carries over for steps that remain. |
+| Timeline | Six statuses: Not Started, Preparing, Submitted, In Review, Needs Changes, Approved. Each step is classified completed, current, blocked, or upcoming. The forecast (earliest and latest dates) re-projects from actual submission and approval dates, and the view flags the critical path, overdue reviews, and target-date risk. |
+| Status updates | Add an optional note with each change, keep a per-step history, and get warnings when submitting with missing documents or unapproved prerequisites. |
+| Documents | Required and optional documents per step, with uploaded or missing status. Files are stored in IndexedDB and can be downloaded again. |
+| Fees | Itemized per step. Each line is marked Official, Calculated, Estimated, or Unknown. Unknown fees are never priced or added to the total. |
+| Inspections | Building, fire, and health checklists chosen by project facts, with completion toggles and a citation per item where one applies. |
+| Citations | Verified links to official model-code text. Fictional local provisions are labelled and have no link. |
+| Stretch | `.ics` calendar export (projected starts, decisions, inspection prep, target date). Follow-up email drafts you review and send yourself; nothing is sent automatically. |
+| Accessibility | Skip link, focus-visible styles, labelled controls, live-region feedback, 44px touch targets, a high-contrast mode, a Plain English mode, and reduced-motion support. Responsive down to 360px. |
 
-## Architecture
-
-```mermaid
-flowchart LR
-  UI[Next.js PWA] --> API[FastAPI]
-  API --> Rules[Deterministic rule engine]
-  Rules --> Municipal[Municipality JSON]
-  Rules --> Timeline[Timeline engine]
-  API --> Store[(PostgreSQL / pgvector-ready)]
-  API --> Files[Private storage abstraction]
-  API --> Retrieval[Evidence retrieval]
-  Retrieval -. optional .-> AI[Translation / explanation provider]
-```
-
-```mermaid
-flowchart TD
-  A[Validated intake] --> B[Sort rules by priority]
-  B --> C[Evaluate nested conditions]
-  C --> D[Deduplicate requirements]
-  D --> E[Record rule + matched fields]
-  E --> F[Attach source status]
-  F --> G[Validate dependency DAG]
-```
-
-```mermaid
-flowchart TD
-  S[Status or date update] --> D[Load dependency graph]
-  D --> P[Schedule prerequisite completion]
-  P --> R[Apply min/max business-day range]
-  R --> X[Start parallel steps together]
-  X --> C[Recompute blockers and completion range]
-```
-
-```mermaid
-sequenceDiagram
-  participant U as User
-  participant A as API
-  participant V as Validator
-  participant S as Private storage
-  U->>A: Authenticated multipart upload
-  A->>V: Ownership, size, signature/type, safe name
-  V-->>A: Validated metadata
-  A->>S: Write private object
-  S-->>A: Opaque key
-  A-->>U: Metadata (signed download URL on request)
-```
-
-## Repository structure
+## Architecture (web app)
 
 ```text
-apps/web/                 Next.js App Router PWA
-  app/                    Landing, intake, demo, project dashboard, methodology
-  messages/               Structured English and Spanish translations
-  lib/                    Typed demo project and persistence logic
-apps/api/                 FastAPI service
-  app/data/               Municipality rules, sources, and requirements
-  app/rule_engine/        Deterministic evaluation and trace generation
-  app/timeline_engine/    Business-day dependency scheduling
-  tests/                  Engine and API integration tests
-docs/                     Authoring, security, and architecture guidance
+apps/web/
+  fixtures/          Municipality configuration: rules, step catalog, citations, fees, inspection templates
+  lib/types.ts       Shared domain types (Project, PermitStep, Status, Document, Fee, Citation, Inspection…)
+  lib/status.ts      Status list, labels, guidance, and predicates
+  lib/engine/        Pure, tested logic
+    rules.ts         config → steps + dependencies + trace   (deterministic, no AI)
+    timeline.ts      baseline schedule, live forecast, critical path
+    progress.ts      step states, bottlenecks, next actions, document progress
+    fees.ts          itemized fees with basis types
+    inspections.ts   applicable checklist items
+    project.ts       create / regenerate a project, derive the view model
+  lib/projectActions.ts  Pure project updates (status, documents, checklist)
+  lib/storage/       localStorage project repository (versioned, migrated) and IndexedDB file store
+  lib/hooks/useProject.ts  The single client owner of project state, saves, and errors
+  lib/ics.ts, lib/followUp.ts  Calendar export and email drafts
+  components/        UI only; no business rules
 ```
+
+Only user progress is persisted (statuses and history, uploads, checklist ticks). Forecasts, fees, inspections, and bottlenecks are always derived from config plus steps, so there is one source of truth.
+
+`apps/api` is an optional FastAPI prototype with its own smaller data set and an in-memory store. The web app does not call it.
 
 ## Run locally
 
-Prerequisites: Node.js 20+ and Python 3.12+.
+Prerequisites: Node.js 20+ (Python 3.12+ only for the optional API).
 
 ```bash
-cp .env.example .env
-npm install
 npm --prefix apps/web install
-python3 -m venv apps/api/.venv
-apps/api/.venv/bin/pip install -r apps/api/requirements.txt
 npm run dev
 ```
 
-Open `http://localhost:3000`. FastAPI docs are at `http://localhost:8000/docs`.
+Then open http://localhost:3000. To also run the API prototype: `pip install -r apps/api/requirements.txt`, then `npm run dev:all`.
 
-Verification:
+## Verify
 
 ```bash
 npm run typecheck
 npm run lint
-npm run test
+npm test          # vitest: rules, dependencies, forecast, progress, fees, inspections, migration, .ics
 npm run build
+npm run test:api  # optional, pytest
 ```
 
-## Configuration and authoring
+## Authoring
 
-Copy `.env.example` and set the anchor municipality values. The current API loads `apps/api/app/data/municipality.json`; municipality-specific facts never live in UI components.
+See [docs/RULES_AND_SOURCES.md](docs/RULES_AND_SOURCES.md) for adding rules, citations (verification policy), and fees, and [docs/STORAGE_SECURITY.md](docs/STORAGE_SECURITY.md) for storage details.
 
-- Add or revise deterministic selection in `apps/api/app/data/rules.json`. Conditions may use `equals`, `not_equals`, `in`, `not_in`, comparisons, `contains`, and `exists`, nested within `all`, `any`, or `none`.
-- Define requirements, dependencies, configured min/max durations, documents, and source IDs in `apps/api/app/data/requirements.json`.
-- Add source metadata in `apps/api/app/data/sources.json`. Never invent an excerpt, section, page, or URL. Use `needs_review` and leave unsupported fields null when verified evidence is unavailable.
-- Add a language by copying `apps/web/messages/en.json`, translating values rather than keys, adding it to the language selector, and testing state persistence while switching.
-- Notification delivery is currently in-app demonstration infrastructure. Email and SMS should be added behind provider interfaces; browser permission must only be requested after a user enables reminders.
+## Known limitations
 
-## Data, storage, and security
-
-`docker-compose.yml` supplies PostgreSQL with pgvector for deployment work. The MVP API currently uses an explicit in-memory repository so it starts without infrastructure; restart clears API projects. The browser demo persists project metadata locally. Before handling real user data, connect the repository interface to PostgreSQL/Alembic and configure authenticated storage.
-
-Production uploads must remain private and be returned through short-lived signed URLs. The API currently enforces ownership at the project lookup boundary, a 10 MB limit, an allowlist of PDF/PNG/JPEG/WebP types, and sanitized basenames. Full byte-signature inspection, durable object writes, antivirus scanning, Supabase Auth, rate limiting, soft-deletion jobs, and storage cleanup are documented extension points and are not claimed as complete.
-
-## Timeline estimates and sources
-
-The configuration estimator returns min/max planning ranges. The timeline engine schedules prerequisites first, starts independent branches together, uses weekdays, and projects the final range from the dependency graph. These are never labeled as guaranteed or real-time municipal data.
-
-All bundled citations have `demo` status and deliberately contain no invented quotation or official URL. The keyword retrieval endpoint refuses to answer when verified evidence is insufficient. A pgvector-backed retriever can later implement the same evidence-result interface without changing rule evaluation.
-
-## Current limitations and next steps
-
-This repository is an honest MVP foundation, not a live municipal service. Highest-priority production work is: load verified anchor-municipality sources and obtain municipal review; add Supabase/PostgreSQL persistence and Alembic migrations; implement Supabase Auth and row-level ownership; connect private object storage with signed URLs and malware scanning; expand status-transition policy and audit records; add full React Flow graph and Playwright browser coverage; introduce background reminder delivery; and perform a formal WCAG audit and threat model.
-
-No AI key is required. If an AI explainer is later added, it must answer only from retrieved verified passages and retain the existing insufficient-evidence refusal.
+- Single-device storage. There are no accounts or sync, and clearing site data removes projects and files.
+- The upload check covers the declared type and size, not the file's byte signature. Files are not scanned.
+- Durations and fees are demonstration configuration and have not been checked against a real municipality.
+- An AI explainer is not included. If one is added, it must only paraphrase retrieved verified sources and must never add or remove requirements.

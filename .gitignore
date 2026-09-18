@@ -10,3 +10,5 @@ data/uploads/
 playwright-report/
 test-results/
 *.tsbuildinfo
+.claude/
+.env.local

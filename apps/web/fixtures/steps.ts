@@ -3,6 +3,7 @@ import type { PermitStep, StepDefinition } from "@/lib/types";
 
 const ACCEPT_DOCS = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
 
+/** Object order is the tie-break order for steps that can run at the same time. */
 export const STEP_DEFINITIONS: Record<string, StepDefinition> = {
   "zoning-review": {
     id: "zoning-review",
@@ -29,6 +30,30 @@ export const STEP_DEFINITIONS: Record<string, StepDefinition> = {
     citationIds: ["zoning42", "ibc1004"],
     estimatedMinDays: 5,
     estimatedMaxDays: 10,
+  },
+  "event-permit": {
+    id: "event-permit",
+    title: "Temporary event application",
+    shortTitle: "Event application",
+    department: "City Clerk",
+    description: "Intake for a temporary public event, including date, layout, and attendance.",
+    plainLanguage: "Tell the clerk when, where, and how many people you expect.",
+    whyRequired: "A public event project was selected.",
+    dependencies: [],
+    parallelWith: [],
+    documents: [
+      {
+        id: "event-layout",
+        title: "Event layout",
+        category: "event_layout",
+        description: "A layout of tents, stages, food, and exits.",
+        acceptedTypes: ACCEPT_DOCS,
+        required: true,
+      },
+    ],
+    citationIds: ["event9", "ibc1004"],
+    estimatedMinDays: 3,
+    estimatedMaxDays: 6,
   },
   "conservation-review": {
     id: "conservation-review",
@@ -320,30 +345,6 @@ export const STEP_DEFINITIONS: Record<string, StepDefinition> = {
     estimatedMinDays: 2,
     estimatedMaxDays: 5,
   },
-  "event-permit": {
-    id: "event-permit",
-    title: "Temporary event application",
-    shortTitle: "Event application",
-    department: "City Clerk",
-    description: "Intake for a temporary public event, including date, layout, and attendance.",
-    plainLanguage: "Tell the clerk when, where, and how many people you expect.",
-    whyRequired: "A public event project was selected.",
-    dependencies: [],
-    parallelWith: [],
-    documents: [
-      {
-        id: "event-layout",
-        title: "Event layout",
-        category: "event_layout",
-        description: "A layout of tents, stages, food, and exits.",
-        acceptedTypes: ACCEPT_DOCS,
-        required: true,
-      },
-    ],
-    citationIds: ["event9", "ibc1004"],
-    estimatedMinDays: 3,
-    estimatedMaxDays: 6,
-  },
   "public-works": {
     id: "public-works",
     title: "Public space and access review",
@@ -441,12 +442,9 @@ export const STEP_DEFINITIONS: Record<string, StepDefinition> = {
   },
 };
 
-export function hydrateStep(
-  definition: StepDefinition,
-  statusChangedAt: string,
-): Omit<PermitStep, "sequence" | "estimatedStartDate" | "estimatedEndDate" | "status"> & {
-  status: PermitStep["status"];
-} {
+export type HydratedStep = Omit<PermitStep, "sequence" | "estimatedStartDate" | "estimatedEndDate">;
+
+export function hydrateStep(definition: StepDefinition, statusChangedAt: string): HydratedStep {
   return {
     id: definition.id,
     title: definition.title,
@@ -457,9 +455,11 @@ export function hydrateStep(
     whyRequired: definition.whyRequired,
     status: "not_started",
     statusChangedAt,
+    history: [],
     dependencies: definition.dependencies,
     parallelWith: definition.parallelWith,
-    documents: definition.documents,
+    // Demo Harbor publishes no forms, so every document requirement has no official form link.
+    documents: definition.documents.map((doc) => ({ ...doc, officialFormUrl: doc.officialFormUrl ?? null })),
     citations: citationsFor(definition.citationIds),
     estimatedMinDays: definition.estimatedMinDays,
     estimatedMaxDays: definition.estimatedMaxDays,

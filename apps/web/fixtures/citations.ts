@@ -1,20 +1,29 @@
 import type { CodeCitation } from "@/lib/types";
 
 /**
- * Demonstration references to published model codes.
- * These are not Demo Harbor law and are not a legal determination.
+ * Citation registry.
+ *
+ * Model-code and federal entries point to the publisher's official text. Their
+ * section numbers, titles, and URLs were checked on `verifiedOn`; local adoption
+ * and amendments are NOT verified because Demo Harbor is fictional.
+ * `demo_ordinance` entries are fictional and deliberately have no URL.
+ * Never add an entry without a real source, or mark a guess as verified.
  */
 export const CITATIONS: Record<string, CodeCitation> = {
   ibc105: {
     id: "ibc105",
     code: "IBC § 105.1",
-    title: "Permits required",
+    title: "Required",
     summary:
       "A permit is required before erecting, constructing, enlarging, altering, or changing the occupancy of a building, except where the code lists a specific exemption.",
     plainLanguage:
       "You generally need a building permit before you build, enlarge, or change how a space is used.",
     url: "https://codes.iccsafe.org/content/IBC2021P2/chapter-1-scope-and-administration#IBC2021P2_Ch01_Sec105",
-    verificationStatus: "demo",
+    sourceType: "model_code",
+    publisher: "International Code Council",
+    edition: "2021",
+    verificationStatus: "verified",
+    verifiedOn: "2026-09-17",
   },
   ibc107: {
     id: "ibc107",
@@ -25,7 +34,11 @@ export const CITATIONS: Record<string, CodeCitation> = {
     plainLanguage:
       "Your drawings need enough detail for the building department to check that the work follows the code.",
     url: "https://codes.iccsafe.org/content/IBC2021P2/chapter-1-scope-and-administration#IBC2021P2_Ch01_Sec107",
-    verificationStatus: "demo",
+    sourceType: "model_code",
+    publisher: "International Code Council",
+    edition: "2021",
+    verificationStatus: "verified",
+    verifiedOn: "2026-09-17",
   },
   ibc110: {
     id: "ibc110",
@@ -36,18 +49,26 @@ export const CITATIONS: Record<string, CodeCitation> = {
     plainLanguage:
       "Inspectors check the work at set points. A final inspection is usually required before you can occupy the space.",
     url: "https://codes.iccsafe.org/content/IBC2021P2/chapter-1-scope-and-administration#IBC2021P2_Ch01_Sec110",
-    verificationStatus: "demo",
+    sourceType: "model_code",
+    publisher: "International Code Council",
+    edition: "2021",
+    verificationStatus: "verified",
+    verifiedOn: "2026-09-17",
   },
   ibc111: {
     id: "ibc111",
     code: "IBC § 111.1",
-    title: "Certificate of occupancy",
+    title: "Change of occupancy",
     summary:
-      "A building or structure shall not be used or occupied until the building official has issued a certificate of occupancy as provided herein.",
+      "A building may not be used or occupied, and its occupancy may not be changed, until the building official issues a certificate of occupancy.",
     plainLanguage:
       "Do not open or live in the finished space until the city issues a certificate of occupancy.",
     url: "https://codes.iccsafe.org/content/IBC2021P2/chapter-1-scope-and-administration#IBC2021P2_Ch01_Sec111",
-    verificationStatus: "demo",
+    sourceType: "model_code",
+    publisher: "International Code Council",
+    edition: "2021",
+    verificationStatus: "verified",
+    verifiedOn: "2026-09-17",
   },
   ibc1004: {
     id: "ibc1004",
@@ -58,7 +79,11 @@ export const CITATIONS: Record<string, CodeCitation> = {
     plainLanguage:
       "How many people the space is designed for is based on its size and use. That number drives exits, restrooms, and fire review.",
     url: "https://codes.iccsafe.org/content/IBC2021P2/chapter-10-means-of-egress#IBC2021P2_Ch10_Sec1004",
-    verificationStatus: "demo",
+    sourceType: "model_code",
+    publisher: "International Code Council",
+    edition: "2021",
+    verificationStatus: "verified",
+    verifiedOn: "2026-09-17",
   },
   ifc105: {
     id: "ifc105",
@@ -68,19 +93,27 @@ export const CITATIONS: Record<string, CodeCitation> = {
       "Operational permits may be required for activities such as public assemblies, hot-work, and certain hazardous operations as determined by the fire code official.",
     plainLanguage:
       "The fire department may need to approve events, cooking, or other activities before they start.",
-    url: "https://codes.iccsafe.org/content/IFC2021P2/chapter-1-scope-and-administration#IFC2021P2_Ch01_Sec105",
-    verificationStatus: "demo",
+    url: "https://codes.iccsafe.org/content/IFC2021P2/chapter-1-scope-and-administration#IFC2021P2_Pt01_Ch01_SubCh02_Sec105.5",
+    sourceType: "model_code",
+    publisher: "International Code Council",
+    edition: "2021",
+    verificationStatus: "verified",
+    verifiedOn: "2026-09-17",
   },
   ifc904: {
     id: "ifc904",
-    code: "IFC § 904.12",
+    code: "IFC § 904.13",
     title: "Commercial cooking systems",
     summary:
       "Commercial cooking appliances that produce grease-laden vapors must be protected by an approved automatic fire-extinguishing system.",
     plainLanguage:
       "If you cook with grease, you typically need a hood and a fire-suppression system over the cooking equipment.",
-    url: "https://codes.iccsafe.org/content/IFC2021P2/chapter-9-fire-protection-and-life-safety-systems#IFC2021P2_Ch09_Sec904",
-    verificationStatus: "demo",
+    url: "https://codes.iccsafe.org/content/IFC2021P2/chapter-9-fire-protection-and-life-safety-systems#IFC2021P2_Pt03_Ch09_Sec904.13",
+    sourceType: "model_code",
+    publisher: "International Code Council",
+    edition: "2021",
+    verificationStatus: "verified",
+    verifiedOn: "2026-09-17",
   },
   nec210: {
     id: "nec210",
@@ -91,7 +124,10 @@ export const CITATIONS: Record<string, CodeCitation> = {
     plainLanguage:
       "New electrical circuits must be sized and protected for the equipment you plan to use.",
     url: "https://www.nfpa.org/codes-and-standards/nfpa-70-standard-development/70",
-    verificationStatus: "demo",
+    sourceType: "model_code",
+    publisher: "National Fire Protection Association",
+    verificationStatus: "verified",
+    verifiedOn: "2026-09-17",
   },
   ipc403: {
     id: "ipc403",
@@ -102,29 +138,173 @@ export const CITATIONS: Record<string, CodeCitation> = {
     plainLanguage:
       "The number of restrooms and sinks depends on how many people the space is designed to hold.",
     url: "https://codes.iccsafe.org/content/IPC2021P3/chapter-4-fixtures-faucets-and-fixture-fittings#IPC2021P3_Ch04_Sec403",
-    verificationStatus: "demo",
+    sourceType: "model_code",
+    publisher: "International Code Council",
+    edition: "2021",
+    verificationStatus: "verified",
+    verifiedOn: "2026-09-17",
   },
   imc507: {
     id: "imc507",
     code: "IMC § 507.1",
-    title: "Commercial kitchen hoods",
+    title: "General (commercial kitchen hoods)",
     summary:
       "Type I hoods are required for appliances that produce grease or smoke; Type II hoods apply to heat and moisture producing equipment that does not produce grease.",
     plainLanguage:
       "Commercial cooking usually needs a special exhaust hood so grease, heat, and steam are removed safely.",
     url: "https://codes.iccsafe.org/content/IMC2021P2/chapter-5-exhaust-systems#IMC2021P2_Ch05_Sec507",
-    verificationStatus: "demo",
+    sourceType: "model_code",
+    publisher: "International Code Council",
+    edition: "2021",
+    verificationStatus: "verified",
+    verifiedOn: "2026-09-17",
   },
   ifgc106: {
     id: "ifgc106",
     code: "IFGC § 106.1",
-    title: "Fuel-gas permits",
+    title: "Where required",
     summary:
       "A permit is required to install, enlarge, alter, repair, or replace fuel-gas piping or appliances, except as exempted by the code.",
     plainLanguage:
       "Work on gas piping or gas appliances usually needs its own permit.",
     url: "https://codes.iccsafe.org/content/IFGC2021P2/chapter-1-scope-and-administration#IFGC2021P2_Ch01_Sec106",
-    verificationStatus: "demo",
+    sourceType: "model_code",
+    publisher: "International Code Council",
+    edition: "2021",
+    verificationStatus: "verified",
+    verifiedOn: "2026-09-17",
+  },
+  ifc505: {
+    id: "ifc505",
+    code: "IFC § 505.1",
+    title: "Address identification",
+    summary:
+      "New and existing buildings must have approved address numbers that are plainly legible and visible from the street or road fronting the property.",
+    plainLanguage:
+      "Post your building number where responders can read it from the street.",
+    url: "https://codes.iccsafe.org/content/IFC2021P2/chapter-5-fire-service-features#IFC2021P2_Pt03_Ch05_Sec505.1",
+    sourceType: "model_code",
+    publisher: "International Code Council",
+    edition: "2021",
+    verificationStatus: "verified",
+    verifiedOn: "2026-09-17",
+  },
+  ifc503: {
+    id: "ifc503",
+    code: "IFC § 503.4",
+    title: "Obstruction of fire apparatus access roads",
+    summary:
+      "Fire apparatus access roads may not be obstructed in any manner, including by parked vehicles, and required widths must be maintained.",
+    plainLanguage:
+      "Keep fire lanes clear so fire trucks can get through.",
+    url: "https://codes.iccsafe.org/content/IFC2021P2/chapter-5-fire-service-features#IFC2021P2_Pt03_Ch05_Sec503.4",
+    sourceType: "model_code",
+    publisher: "International Code Council",
+    edition: "2021",
+    verificationStatus: "verified",
+    verifiedOn: "2026-09-17",
+  },
+  ifc906: {
+    id: "ifc906",
+    code: "IFC § 906.1",
+    title: "Where required (portable fire extinguishers)",
+    summary:
+      "Portable fire extinguishers are required in the occupancies and locations the section lists, including many commercial kitchens and assembly uses.",
+    plainLanguage:
+      "Many businesses and events need fire extinguishers in set locations.",
+    url: "https://codes.iccsafe.org/content/IFC2021P2/chapter-9-fire-protection-and-life-safety-systems#IFC2021P2_Pt03_Ch09_Sec906.1",
+    sourceType: "model_code",
+    publisher: "International Code Council",
+    edition: "2021",
+    verificationStatus: "verified",
+    verifiedOn: "2026-09-17",
+  },
+  ifc907: {
+    id: "ifc907",
+    code: "IFC § 907.2.11",
+    title: "Single- and multiple-station smoke alarms",
+    summary:
+      "Listed smoke alarms must be installed in the residential and similar occupancies and locations the section lists.",
+    plainLanguage:
+      "Homes and sleeping areas need working smoke alarms in required locations.",
+    url: "https://codes.iccsafe.org/content/IFC2021P2/chapter-9-fire-protection-and-life-safety-systems#IFC2021P2_Pt03_Ch09_Sec907.2.11",
+    sourceType: "model_code",
+    publisher: "International Code Council",
+    edition: "2021",
+    verificationStatus: "verified",
+    verifiedOn: "2026-09-17",
+  },
+  ifc1004: {
+    id: "ifc1004",
+    code: "IFC § 1004.9",
+    title: "Posting of occupant load",
+    summary:
+      "Rooms used for assembly must have the maximum occupant load posted in a conspicuous place near the main exit.",
+    plainLanguage:
+      "Assembly spaces must post a sign showing how many people are allowed.",
+    url: "https://codes.iccsafe.org/content/IFC2021P2/chapter-10-means-of-egress#IFC2021P2_Pt03_Ch10_Sec1004.9",
+    sourceType: "model_code",
+    publisher: "International Code Council",
+    edition: "2021",
+    verificationStatus: "verified",
+    verifiedOn: "2026-09-17",
+  },
+  ifc1013: {
+    id: "ifc1013",
+    code: "IFC § 1013.1",
+    title: "Where required (exit signs)",
+    summary:
+      "Exits and exit access doors must be marked by approved exit signs where the section requires them.",
+    plainLanguage:
+      "Exit doors need visible exit signs.",
+    url: "https://codes.iccsafe.org/content/IFC2021P2/chapter-10-means-of-egress#IFC2021P2_Pt03_Ch10_Sec1013.1",
+    sourceType: "model_code",
+    publisher: "International Code Council",
+    edition: "2021",
+    verificationStatus: "verified",
+    verifiedOn: "2026-09-17",
+  },
+  fc2102: {
+    id: "fc2102",
+    code: "Food Code § 2-102.12",
+    title: "Certified food protection manager",
+    summary:
+      "At least one employee with supervisory responsibility must be a certified food protection manager.",
+    plainLanguage:
+      "Someone in charge must hold a food-protection manager certificate.",
+    url: "https://www.fda.gov/food/fda-food-code/food-code-2022",
+    sourceType: "federal_guidance",
+    publisher: "U.S. Food and Drug Administration",
+    edition: "2022",
+    verificationStatus: "needs_review",
+  },
+  fc3501: {
+    id: "fc3501",
+    code: "Food Code § 3-501.16",
+    title: "Hot and cold holding",
+    summary:
+      "Time/temperature control for safety food must be held at 41°F (5°C) or below, or 135°F (57°C) or above, unless another control is used.",
+    plainLanguage:
+      "Keep cold food at 41°F or colder and hot food at 135°F or hotter.",
+    url: "https://www.fda.gov/food/fda-food-code/food-code-2022",
+    sourceType: "federal_guidance",
+    publisher: "U.S. Food and Drug Administration",
+    edition: "2022",
+    verificationStatus: "needs_review",
+  },
+  fc5203: {
+    id: "fc5203",
+    code: "Food Code § 5-203.11",
+    title: "Handwashing sinks: numbers and capacities",
+    summary:
+      "Food establishments need at least one handwashing sink, and enough sinks for convenient use by employees.",
+    plainLanguage:
+      "You need a sink just for washing hands.",
+    url: "https://www.fda.gov/food/fda-food-code/food-code-2022",
+    sourceType: "federal_guidance",
+    publisher: "U.S. Food and Drug Administration",
+    edition: "2022",
+    verificationStatus: "needs_review",
   },
   zoning42: {
     id: "zoning42",
@@ -135,6 +315,8 @@ export const CITATIONS: Record<string, CodeCitation> = {
     plainLanguage:
       "The zoning office checks that your project is allowed at this address before later permits move forward.",
     url: null,
+    sourceType: "demo_ordinance",
+    publisher: "Demo Harbor (fictional)",
     verificationStatus: "demo",
   },
   foodcode: {
@@ -146,7 +328,11 @@ export const CITATIONS: Record<string, CodeCitation> = {
     plainLanguage:
       "You need a health permit before you prepare or sell food to the public.",
     url: "https://www.fda.gov/food/fda-food-code/food-code-2022",
-    verificationStatus: "demo",
+    sourceType: "federal_guidance",
+    publisher: "U.S. Food and Drug Administration",
+    edition: "2022",
+    verificationStatus: "verified",
+    verifiedOn: "2026-09-17",
   },
   clerk12: {
     id: "clerk12",
@@ -157,6 +343,8 @@ export const CITATIONS: Record<string, CodeCitation> = {
     plainLanguage:
       "Most businesses need to register with the city clerk before opening.",
     url: null,
+    sourceType: "demo_ordinance",
+    publisher: "Demo Harbor (fictional)",
     verificationStatus: "demo",
   },
   event9: {
@@ -168,6 +356,8 @@ export const CITATIONS: Record<string, CodeCitation> = {
     plainLanguage:
       "Public events need an application that covers date, layout, and crowd size.",
     url: null,
+    sourceType: "demo_ordinance",
+    publisher: "Demo Harbor (fictional)",
     verificationStatus: "demo",
   },
   works7: {
@@ -179,6 +369,8 @@ export const CITATIONS: Record<string, CodeCitation> = {
     plainLanguage:
       "If your project uses a street, sidewalk, or park, Public Works has to review access and safety.",
     url: null,
+    sourceType: "demo_ordinance",
+    publisher: "Demo Harbor (fictional)",
     verificationStatus: "demo",
   },
   coastal3: {
@@ -190,6 +382,8 @@ export const CITATIONS: Record<string, CodeCitation> = {
     plainLanguage:
       "Projects near the water get an extra environmental review.",
     url: null,
+    sourceType: "demo_ordinance",
+    publisher: "Demo Harbor (fictional)",
     verificationStatus: "demo",
   },
 };

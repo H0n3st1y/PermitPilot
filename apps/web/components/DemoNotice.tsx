@@ -1,8 +1,12 @@
-export function DemoNotice({ text }: { text?: string }) {
+import Link from "next/link";
+
+export function DemoNotice() {
   return (
     <div className="demo-banner" role="note">
-      {text ||
-        "This roadmap uses demonstration data and is not an official determination. Confirm all requirements, fees, dates, and approvals with your municipality."}
+      <strong>Demo data.</strong> Demo Harbor is a fictional town.{" "}
+      <Link href="/about" className="text-[var(--ink)] underline">
+        What this means
+      </Link>
     </div>
   );
 }

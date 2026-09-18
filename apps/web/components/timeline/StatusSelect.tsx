@@ -1,33 +1,37 @@
 "use client";
 
-import { STATUS_LABELS, type PermitStep, type PermitStepStatus, PERMIT_STEP_STATUSES } from "@/lib/types";
+import { PERMIT_STEP_STATUSES, STATUS_LABELS } from "@/lib/status";
+import type { PermitStep, PermitStepStatus } from "@/lib/types";
 
 export function StatusSelect({
   step,
   onChange,
+  id,
+  className = "",
 }: {
   step: PermitStep;
   onChange: (status: PermitStepStatus) => void;
+  id?: string;
+  className?: string;
 }) {
   return (
-    <label className="block min-w-[11rem]">
-      <span className="sr-only">Status for {step.title}</span>
-      <select
-        className="status-select"
-        value={step.status}
-        onChange={(event) => onChange(event.target.value as PermitStepStatus)}
-        aria-label={`Update status for ${step.shortTitle}`}
-      >
-        {PERMIT_STEP_STATUSES.map((status) => (
-          <option key={status} value={status}>
-            {STATUS_LABELS[status]}
-          </option>
-        ))}
-      </select>
-    </label>
+    <select
+      id={id}
+      className={`input ${className}`}
+      value={step.status}
+      onChange={(event) => onChange(event.target.value as PermitStepStatus)}
+      aria-label={id ? undefined : `Status for ${step.shortTitle}`}
+    >
+      {PERMIT_STEP_STATUSES.map((status) => (
+        <option key={status} value={status}>
+          {STATUS_LABELS[status]}
+        </option>
+      ))}
+    </select>
   );
 }
 
-export function StatusBadge({ status }: { status: PermitStepStatus }) {
-  return <span className={`status-pill status-${status}`}>{STATUS_LABELS[status]}</span>;
+/** Permit status as a colored dot plus text. */
+export function StatusText({ status }: { status: PermitStepStatus }) {
+  return <span className={`status status-${status}`}>{STATUS_LABELS[status]}</span>;
 }

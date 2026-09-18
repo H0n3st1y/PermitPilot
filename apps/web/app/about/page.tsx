@@ -36,7 +36,7 @@ export default function AboutPage() {
         <h1 className="page-title mt-1">How PermitPilot works</h1>
         <div className="mt-8 divide-y divide-[var(--line)] border-y border-[var(--line)]">
           {SECTIONS.map((section) => (
-            <section key={section.title} className="py-5">
+            <section key={section.title} className="reveal py-5">
               <h2 className="h3">{section.title}</h2>
               <p className="mt-1 text-[var(--ink-2)]">{section.body}</p>
             </section>

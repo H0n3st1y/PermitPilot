@@ -95,7 +95,7 @@ export default function HomePage() {
                 <h2 id="projects-heading" className="h3">
                   Continue where you left off
                 </h2>
-                <ul className="divided surface mt-2">
+                <ul className="divided surface stagger mt-2">
                   {projects!.map((project) => (
                     <li key={project.id} className="flex items-center gap-2 pl-4 pr-1">
                       <Link className="min-w-0 flex-1 py-3 no-underline" href={`/projects/${encodeURIComponent(project.id)}`}>
@@ -117,7 +117,7 @@ export default function HomePage() {
                   <span className="font-semibold">Harbor Kitchen</span>
                   <span className="meta">Sample roadmap</span>
                 </figcaption>
-                <ol className="divided">
+                <ol className="divided stagger">
                   {PREVIEW.map((group) => (
                     <li key={group.stage} className="px-4 py-3">
                       <p className="label mb-2">{group.stage}</p>
@@ -154,7 +154,7 @@ export default function HomePage() {
           <h2 id="answers-heading" className="h2">
             The answers you need before you apply
           </h2>
-          <div className="mt-6 grid gap-8 md:grid-cols-3">
+          <div className="reveal mt-6 grid gap-8 md:grid-cols-3">
             {ANSWERS.map((item) => (
               <div key={item.title} className="border-t-2 border-[var(--ink)] pt-3">
                 <h3 className="h3">{item.title}</h3>
@@ -162,7 +162,7 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-          <div className="callout callout-neutral mt-10 max-w-3xl">
+          <div className="callout callout-neutral reveal mt-10 max-w-3xl">
             <p className="font-semibold">What PermitPilot won&apos;t do</p>
             <p className="mt-1 text-[var(--ink-2)]">
               It won&apos;t give legal advice, submit applications, or guess at fees and rules it can&apos;t source. Every

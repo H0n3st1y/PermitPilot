@@ -35,8 +35,16 @@
   --r-lg: 8px;
   --shadow-float: 0 1px 2px rgb(28 29 31 / 0.08), 0 8px 24px rgb(28 29 31 / 0.12);
   --ease: cubic-bezier(0.2, 0, 0, 1);
+  /* Decelerating curve for anything the eye tracks to a stop: reveals, sliding
+     underlines, disclosure. Lands softly instead of arriving at speed. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --t-fast: 120ms;
   --t-med: 180ms;
+  --t-slow: 240ms;
+
+  /* Monochrome grain over --bg. Not decoration: it gives the warm neutrals the
+     tooth of printed stock, which is the whole point of the paper palette. */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)' opacity='0.1'/%3E%3C/svg%3E");
 
   /* Legacy aliases used by utility classes. Prefer the tokens above in new code. */
   --paper: var(--bg);
@@ -71,6 +79,7 @@ html.high-contrast {
   --blocked-soft: #000;
   --focus: #ffff00;
   --shadow-float: none;
+  --grain: none;
   color-scheme: dark;
 }
 
@@ -79,15 +88,37 @@ html.high-contrast {
 html {
   color-scheme: light;
   -webkit-text-size-adjust: 100%;
+  /* Reserve the scrollbar so entering a scrolling view never shifts the layout. */
+  scrollbar-gutter: stable;
+  scroll-behavior: smooth;
+  /* Clears the sticky tab bar when focus moves to a view heading. */
+  scroll-padding-top: 4rem;
+}
+
+@media (min-width: 768px) {
+  html {
+    /* Sticky header (3.5rem) + sticky tabs (2.875rem). */
+    scroll-padding-top: 7rem;
+  }
 }
 
 body {
   margin: 0;
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image: var(--grain);
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: 1rem;
   line-height: 1.55;
+}
+
+/* Kill orphans and ragged last lines. Costs nothing, reads noticeably better. */
+p,
+li,
+dd,
+figcaption,
+.meta {
+  text-wrap: pretty;
 }
 
 a {
@@ -106,6 +137,12 @@ a {
 
 ::selection {
   background: var(--primary-soft);
+  color: var(--ink);
+}
+
+input,
+textarea {
+  caret-color: var(--primary);
 }
 
 .skip-link {
@@ -158,6 +195,14 @@ a {
 }
 
 /* ============ 3. Typography ============ */
+
+/* Headings wrap into even lines instead of leaving one word stranded. */
+.display,
+.page-title,
+.h2,
+.h3 {
+  text-wrap: balance;
+}
 
 .display {
   font-family: var(--font-serif);
@@ -270,6 +315,10 @@ a {
   text-decoration: none;
 }
 
+.brand:hover .brand-mark {
+  transform: translateY(-1px);
+}
+
 .brand-mark {
   display: grid;
   height: 1.75rem;
@@ -281,6 +330,13 @@ a {
   font-family: var(--font-serif);
   font-size: 1rem;
   font-weight: 600;
+  /* Inset keyline: reads as a struck seal rather than a coloured square. */
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--on-primary) 30%, transparent);
+  transition: transform var(--t-med) var(--ease-out);
+}
+
+.high-contrast .brand-mark {
+  box-shadow: inset 0 0 0 1px currentColor;
 }
 
 .nav-link {
@@ -317,7 +373,7 @@ a {
   background: var(--surface);
   padding: 0.5rem;
   box-shadow: var(--shadow-float);
-  animation: pop-in var(--t-med) var(--ease);
+  animation: pop-in var(--t-med) var(--ease-out);
 }
 
 .menu-panel .nav-link {
@@ -413,11 +469,11 @@ a {
     background-color var(--t-fast) var(--ease),
     border-color var(--t-fast) var(--ease),
     color var(--t-fast) var(--ease),
-    transform var(--t-fast) var(--ease);
+    transform var(--t-fast) var(--ease-out);
 }
 
 .btn:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: translateY(1px) scale(0.99);
 }
 
 .btn:disabled,
@@ -517,6 +573,7 @@ label.btn:has(+ .file-input:focus-visible) {
 }
 
 .link {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -531,7 +588,30 @@ label.btn:has(+ .file-input:focus-visible) {
   cursor: pointer;
 }
 
-.link:hover {
+/* Sweeping rule instead of a snapped-on underline. Same affordance, no jump. */
+.link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.16em;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--t-med) var(--ease-out);
+}
+
+.link:hover::after,
+.link:focus-visible::after {
+  transform: scaleX(1);
+}
+
+.high-contrast .link::after {
+  display: none;
+}
+
+.high-contrast .link:hover {
   text-decoration: underline;
   text-underline-offset: 0.18em;
 }
@@ -775,7 +855,8 @@ label.btn:has(+ .file-input:focus-visible) {
   border-radius: 2px;
   background: var(--primary);
   transform: scaleX(0);
-  transition: transform var(--t-med) var(--ease);
+  transform-origin: left center;
+  transition: transform var(--t-med) var(--ease-out);
 }
 
 .tab:hover {
@@ -893,7 +974,7 @@ label.btn:has(+ .file-input:focus-visible) {
   border-radius: 999px;
   background: var(--ok);
   transform-origin: left center;
-  transition: transform 240ms var(--ease);
+  transition: transform var(--t-slow) var(--ease-out);
 }
 
 .high-contrast .progress {
@@ -1063,8 +1144,34 @@ textarea.input,
   transform: rotate(45deg);
 }
 
-.disclosure[open] > :not(summary) {
-  animation: fade-in var(--t-med) var(--ease);
+/* Fallback reveal. Browsers with ::details-content get the real height
+   transition below instead, so the two never run together. */
+@supports not selector(::details-content) {
+  .disclosure[open] > :not(summary) {
+    animation: fade-in var(--t-med) var(--ease);
+  }
+}
+
+@supports selector(::details-content) {
+  :root {
+    /* Lets block-size animate between 0 and auto. */
+    interpolate-size: allow-keywords;
+  }
+
+  .disclosure::details-content {
+    block-size: 0;
+    overflow: clip;
+    opacity: 0;
+    transition:
+      block-size var(--t-med) var(--ease-out),
+      opacity var(--t-med) var(--ease-out),
+      content-visibility var(--t-med) allow-discrete;
+  }
+
+  .disclosure[open]::details-content {
+    block-size: auto;
+    opacity: 1;
+  }
 }
 
 .stepper {
@@ -1184,6 +1291,34 @@ textarea.input,
   text-align: left;
   cursor: pointer;
   transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+
+/* Reinforces which row the pointer or focus owns, without shifting layout. */
+.node::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--line-strong);
+  opacity: 0;
+  transform: scaleY(0.3);
+  transition:
+    opacity var(--t-fast) var(--ease-out),
+    transform var(--t-med) var(--ease-out);
+}
+
+.node:hover::before,
+.node:focus-visible::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+.node-current::before,
+.node-attention::before {
+  background: var(--primary);
 }
 
 .node + .node {
@@ -1445,7 +1580,7 @@ textarea.input,
   background: var(--surface);
   padding: 0.9rem 1rem;
   box-shadow: var(--shadow-float);
-  animation: pop-in var(--t-med) var(--ease);
+  animation: pop-in var(--t-med) var(--ease-out);
 }
 
 @media (max-width: 639px) {
@@ -1459,6 +1594,7 @@ textarea.input,
     max-height: 70vh;
     overflow-y: auto;
     animation-name: sheet-in;
+    animation-timing-function: var(--ease-out);
   }
 }
 
@@ -1512,7 +1648,7 @@ textarea.input,
   font-size: 0.94rem;
   box-shadow: var(--shadow-float);
   pointer-events: auto;
-  animation: toast-in var(--t-med) var(--ease);
+  animation: toast-in var(--t-med) var(--ease-out);
 }
 
 .toast-error {
@@ -1593,6 +1729,104 @@ textarea.input,
   }
   100% {
     transform: scale(1);
+  }
+}
+
+/* ============ 15. Scroll-linked motion ============
+
+   Progress-based animations: they are driven by the scroll position, not by a
+   clock, so nothing plays on its own and nothing is ever mid-flight when the
+   user stops. Every rule here is an enhancement behind @supports plus a
+   reduced-motion guard, and every one animates opacity or transform only.
+   Firefox and older engines simply get the static layout. */
+
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@keyframes emerge {
+  to {
+    opacity: 1;
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    /* A section settles into place as it is scrolled to, and unsettles if the
+       user scrolls back. Content is never hidden without support for this. */
+    .reveal {
+      animation: reveal-in linear both;
+      animation-timeline: view();
+      animation-range: entry 10% entry 90%;
+    }
+  }
+}
+
+@supports (animation-timeline: scroll()) {
+  @media (min-width: 768px) and (prefers-reduced-motion: no-preference) {
+    /* Once the header is genuinely floating over scrolled content it earns a
+       shadow, and it fades in over the first 4rem instead of snapping on. */
+    .site-header::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      box-shadow: 0 6px 16px rgb(28 29 31 / 0.07);
+      animation: emerge linear both;
+      animation-timeline: scroll(root block);
+      animation-range: 0 4rem;
+    }
+
+    .high-contrast .site-header::after {
+      display: none;
+    }
+  }
+}
+
+/* A short cascade for one list that arrives as a unit. Used sparingly: a whole
+   page of staggered entrances reads as slow, not smooth. */
+@media (prefers-reduced-motion: no-preference) {
+  .stagger > * {
+    animation: fade-in var(--t-slow) var(--ease-out) both;
+  }
+
+  .stagger > *:nth-child(2) {
+    animation-delay: 50ms;
+  }
+
+  .stagger > *:nth-child(3) {
+    animation-delay: 100ms;
+  }
+
+  .stagger > *:nth-child(4) {
+    animation-delay: 150ms;
+  }
+
+  .stagger > *:nth-child(n + 5) {
+    animation-delay: 200ms;
+  }
+}
+
+/* ============ 16. Motion overrides ============ */
+
+@media print {
+  .reveal,
+  .stagger > * {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .site-header::after {
+    display: none;
+  }
+
+  body {
+    background-image: none;
   }
 }
 

@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useRef } from "react";
 import { ArrowRight, ShieldCheck, X } from "lucide-react";
 import { CodeCitationBadge } from "@/components/citations/CodeCitationBadge";
+import { RuleTrace } from "@/components/explain/RuleTrace";
 import { StateMarker } from "@/components/common/StateMarker";
 import { useA11y } from "@/lib/a11y";
 import type { PermitState } from "@/lib/engine/permitState";
-import { formatRuleId, labelForField, labelForValue, parseMatchedCondition } from "@/lib/explain";
+import { labelForField, labelForValue, parseMatchedCondition } from "@/lib/explain";
 import { useLabels } from "@/lib/i18n/labels";
 import { useCopy } from "@/lib/i18n/useCopy";
 import type { EvaluationTrace, PermitStep, Project } from "@/lib/types";
@@ -154,13 +155,8 @@ export function WhyThisStepDrawer({
 
           <Section title={t("why.ruleTrace")} hint={t("why.ruleTraceHint")}>
             {trace ? (
-              <div className="trace">
-                <code className="rule-id">{formatRuleId(trace.ruleId)}</code>
-                <p className="mt-1.5 text-[var(--ink-2)]">{trace.reason}</p>
-                <p className="meta mt-2">
-                  {project.roadmap.rulesVersion}
-                </p>
-              </div>
+              // Matched answers get their own section below, so they are not repeated here.
+              <RuleTrace trace={trace} rulesVersion={project.roadmap.rulesVersion} showConditions={false} />
             ) : (
               <p className="meta">{t("why.noSources")}</p>
             )}

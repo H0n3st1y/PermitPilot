@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
+import { isPhraseKey } from "@/lib/i18n/labels";
+import { useCopy } from "@/lib/i18n/useCopy";
 import { SAMPLE_PROJECT_ID, sampleProject } from "@/lib/sample";
 import { deleteFiles } from "@/lib/storage/files";
 import { loadProject, saveProject } from "@/lib/storage/projects";
@@ -13,6 +15,7 @@ import { loadProject, saveProject } from "@/lib/storage/projects";
 function DemoLoader() {
   const router = useRouter();
   const params = useSearchParams();
+  const { t } = useCopy();
   const reset = params.get("reset") === "1";
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +39,7 @@ function DemoLoader() {
         router.replace(`/projects/${SAMPLE_PROJECT_ID}${query ? `?${query}` : ""}`);
       } catch (cause) {
         console.error("PermitPilot: could not open the sample project", cause);
-        setError(cause instanceof Error ? cause.message : "The sample project could not be created.");
+        setError(cause instanceof Error ? cause.message : "demo.failedBody");
       }
     }
     void open();
@@ -46,16 +49,18 @@ function DemoLoader() {
     <main id="main" className="container-narrow py-16">
       {error ? (
         <>
-          <h1 className="page-title">The sample project couldn&apos;t open</h1>
+          <h1 className="page-title">{t("demo.failed")}</h1>
           <p className="callout callout-blocked mt-4" role="alert">
-            {error}
+            {isPhraseKey(error) ? t(error) : error}
           </p>
           <Link className="btn btn-primary mt-6" href="/">
-            Back to home
+            {t("demo.backHome")}
           </Link>
         </>
       ) : (
-        <p role="status" className="meta inline-flex items-center gap-2"><Loader2 size={16} className="spin" aria-hidden /> Opening the Harbor Kitchen sample…</p>
+        <p role="status" className="meta inline-flex items-center gap-2">
+          <Loader2 size={16} className="spin" aria-hidden /> {t("demo.opening")}
+        </p>
       )}
     </main>
   );

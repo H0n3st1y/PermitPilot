@@ -1,6 +1,8 @@
 "use client";
 
 import type { RefObject } from "react";
+import { useLabels } from "@/lib/i18n/labels";
+import { useCopy } from "@/lib/i18n/useCopy";
 import { TRADE_LABELS, type Trade } from "@/lib/types";
 
 /**
@@ -122,10 +124,12 @@ export function SelectField({
 }
 
 export function TradeChecks({ trades, onChange }: { trades: Trade[]; onChange: (trades: Trade[]) => void }) {
+  const { t } = useCopy();
+  const labels = useLabels();
   return (
     <fieldset>
-      <legend className="field-label">Trade work included</legend>
-      <p className="field-hint">Each trade usually needs its own permit. Leave blank if none.</p>
+      <legend className="field-label">{t("intake.space.tradesLegend")}</legend>
+      <p className="field-hint">{t("intake.space.tradesHint")}</p>
       <div className="mt-1 grid gap-x-6 sm:grid-cols-2">
         {(Object.keys(TRADE_LABELS) as Trade[]).map((trade) => (
           <label key={trade} className="check-row">
@@ -136,7 +140,7 @@ export function TradeChecks({ trades, onChange }: { trades: Trade[]; onChange: (
                 onChange(trades.includes(trade) ? trades.filter((item) => item !== trade) : [...trades, trade])
               }
             />
-            {TRADE_LABELS[trade]}
+            {labels.trade(trade)}
           </label>
         ))}
       </div>

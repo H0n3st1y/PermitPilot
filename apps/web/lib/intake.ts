@@ -1,13 +1,24 @@
+import type { PhraseKey } from "@/lib/i18n/phrases";
 import type { OccupancyGroup, ProjectConfig, ProjectType } from "@/lib/types";
 
-export const INTAKE_STEPS = ["Project", "The space", "Details"] as const;
+export const INTAKE_STEP_KEYS = ["intake.step.project", "intake.step.space", "intake.step.details"] as const satisfies readonly PhraseKey[];
+
+export type IntakeErrorKey =
+  | "intake.error.projectType"
+  | "intake.error.squareFootageMin"
+  | "intake.error.squareFootageMax"
+  | "intake.error.valuationMin"
+  | "intake.error.valuationMax"
+  | "intake.error.name"
+  | "intake.error.visitorCount"
+  | "intake.error.targetDate";
 
 /** Valuation only changes the result (the building permit fee) for construction projects. */
 export function usesValuation(type: ProjectType): boolean {
   return type === "room_addition" || type === "commercial_renovation";
 }
 
-export type IntakeErrors = Partial<Record<keyof ProjectConfig, string>>;
+export type IntakeErrors = Partial<Record<keyof ProjectConfig, IntakeErrorKey>>;
 
 export const EMPTY_CONFIG: ProjectConfig = {
   name: "",
@@ -47,26 +58,26 @@ export function validateIntake(config: ProjectConfig, page?: number): IntakeErro
 
   if (check(1)) {
     if (!Number.isFinite(config.squareFootage) || config.squareFootage < 1) {
-      errors.squareFootage = "Enter the floor area in square feet (at least 1).";
+      errors.squareFootage = "intake.error.squareFootageMin";
     } else if (config.squareFootage > 1_000_000) {
-      errors.squareFootage = "Enter 1,000,000 sq ft or less.";
+      errors.squareFootage = "intake.error.squareFootageMax";
     }
     if (!usesValuation(config.projectType)) {
       // Not asked for this project type; the stored default is not used by the rules.
     } else if (!Number.isFinite(config.estimatedValuation) || config.estimatedValuation < 0) {
-      errors.estimatedValuation = "Enter an estimated value of $0 or more.";
+      errors.estimatedValuation = "intake.error.valuationMin";
     } else if (config.estimatedValuation > 100_000_000) {
-      errors.estimatedValuation = "Enter $100,000,000 or less.";
+      errors.estimatedValuation = "intake.error.valuationMax";
     }
   }
   if (check(2)) {
-    if (!config.name.trim()) errors.name = "Give your project a name.";
+    if (!config.name.trim()) errors.name = "intake.error.name";
     if (config.projectType === "public_event") {
       const visitors = config.visitorCount ?? 0;
-      if (!Number.isFinite(visitors) || visitors < 0) errors.visitorCount = "Enter expected attendance (0 or more).";
+      if (!Number.isFinite(visitors) || visitors < 0) errors.visitorCount = "intake.error.visitorCount";
     }
     if (config.desiredStartDate && config.targetDate && config.targetDate < config.desiredStartDate) {
-      errors.targetDate = "The target date must be on or after the start date.";
+      errors.targetDate = "intake.error.targetDate";
     }
   }
   return errors;

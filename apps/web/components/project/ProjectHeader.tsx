@@ -8,7 +8,8 @@ import type { TimelineForecast } from "@/lib/engine/timeline";
 import { buildProjectCalendar, downloadBlob, slugify } from "@/lib/ics";
 import { useCopy } from "@/lib/i18n/useCopy";
 import { SAMPLE_PROJECT_ID } from "@/lib/sample";
-import { PROJECT_TYPE_LABELS, ZONE_LABELS, type InspectionItem, type Project } from "@/lib/types";
+import { useLabels } from "@/lib/i18n/labels";
+import type { InspectionItem, Project } from "@/lib/types";
 
 /** Compact project identity and overall progress. The next action lives in the roadmap view. */
 export function ProjectHeader({
@@ -25,6 +26,7 @@ export function ProjectHeader({
   now: Date;
 }) {
   const { t } = useCopy();
+  const labels = useLabels();
   const target = project.config.targetDate;
   const lateForTarget = Boolean(target && !progress.complete && forecast.latestFinish > target);
 
@@ -38,8 +40,8 @@ export function ProjectHeader({
       <div className="min-w-0">
         <p className="meta">
           {project.id === SAMPLE_PROJECT_ID ? `${t("header.sampleProject")} · ` : ""}
-          {PROJECT_TYPE_LABELS[project.config.projectType]} · {t("header.squareFeet", { value: project.config.squareFootage.toLocaleString() })} ·{" "}
-          {ZONE_LABELS[project.config.zone]}
+          {labels.projectType(project.config.projectType)} · {t("header.squareFeet", { value: project.config.squareFootage.toLocaleString() })} ·{" "}
+          {labels.zone(project.config.zone)}
         </p>
         <h1 className="page-title mt-1 break-words">{project.config.name}</h1>
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">

@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { DEFAULT_LOCALE, isLocale, type Locale } from "@/lib/i18n/types";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { persistLocaleCookie } from "@/lib/i18n/localeCookie";
+import { DEFAULT_LOCALE, isLocale, localeDir, type Locale } from "@/lib/i18n/types";
 
 /**
  * Display preferences: high contrast, reading level, and interface language.
@@ -18,8 +19,6 @@ export interface A11yState {
   setHighContrast: (value: boolean) => void;
   setPlainLanguage: (value: boolean) => void;
   setLocale: (value: Locale) => void;
-  /** Convenience for the Español switch, which is a two-way toggle in the UI. */
-  toggleLocale: () => void;
 }
 
 const A11yContext = createContext<A11yState | null>(null);
@@ -31,10 +30,19 @@ interface StoredPreferences {
   locale?: string;
 }
 
-export function A11yProvider({ children }: { children: React.ReactNode }) {
+export function A11yProvider({
+  children,
+  initialLocale = DEFAULT_LOCALE,
+  localeCookieSet = false,
+}: {
+  children: React.ReactNode;
+  initialLocale?: Locale;
+  /** True when the root layout already read a valid locale cookie. */
+  localeCookieSet?: boolean;
+}) {
   const [highContrast, setHighContrast] = useState(false);
   const [plainLanguage, setPlainLanguage] = useState(false);
-  const [locale, setLocale] = useState<Locale>(DEFAULT_LOCALE);
+  const [locale, setLocale] = useState<Locale>(initialLocale);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -53,10 +61,12 @@ export function A11yProvider({ children }: { children: React.ReactNode }) {
     if (stored) {
       setHighContrast(Boolean(stored.highContrast));
       setPlainLanguage(Boolean(stored.plainLanguage));
-      if (isLocale(stored.locale)) setLocale(stored.locale);
+      // Cookie already won the first paint. Only migrate locale from storage
+      // when this visit had no cookie (pre-cookie clients, or a cleared jar).
+      if (!localeCookieSet && isLocale(stored.locale)) setLocale(stored.locale);
     }
     setHydrated(true);
-  }, []);
+  }, [localeCookieSet]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -65,14 +75,14 @@ export function A11yProvider({ children }: { children: React.ReactNode }) {
     root.dataset.plain = plainLanguage ? "true" : "false";
     // Screen readers and hyphenation need the document language to follow the UI.
     root.lang = locale;
+    root.dir = localeDir(locale);
+    persistLocaleCookie(locale);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ highContrast, plainLanguage, locale }));
     } catch {
       // Preferences simply do not persist when storage is unavailable.
     }
   }, [highContrast, plainLanguage, locale, hydrated]);
-
-  const toggleLocale = useCallback(() => setLocale((current) => (current === "en" ? "es" : "en")), []);
 
   const value = useMemo<A11yState>(
     () => ({
@@ -82,9 +92,8 @@ export function A11yProvider({ children }: { children: React.ReactNode }) {
       setHighContrast,
       setPlainLanguage,
       setLocale,
-      toggleLocale,
     }),
-    [highContrast, plainLanguage, locale, toggleLocale],
+    [highContrast, plainLanguage, locale],
   );
 
   return <A11yContext.Provider value={value}>{children}</A11yContext.Provider>;

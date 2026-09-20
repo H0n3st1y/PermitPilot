@@ -7,7 +7,7 @@ import { RuleTrace } from "@/components/explain/RuleTrace";
 import { StateMarker } from "@/components/common/StateMarker";
 import { useA11y } from "@/lib/a11y";
 import type { PermitState } from "@/lib/engine/permitState";
-import { labelForField, labelForValue, parseMatchedCondition } from "@/lib/explain";
+import { parseMatchedCondition } from "@/lib/explain";
 import { useLabels } from "@/lib/i18n/labels";
 import { useCopy } from "@/lib/i18n/useCopy";
 import type { EvaluationTrace, PermitStep, Project } from "@/lib/types";
@@ -80,9 +80,9 @@ export function WhyThisStepDrawer({
       "visitorCount",
     ].filter((key) => config[key] !== undefined && config[key] !== null);
     return keys
-      .map((key) => ({ field: key, value: labelForValue(key, config[key]), matched: matchedFields.has(key) }))
+      .map((key) => ({ field: key, value: labels.configValue(key, config[key]), matched: matchedFields.has(key) }))
       .sort((a, b) => Number(b.matched) - Number(a.matched));
-  }, [project.config, matchedFields]);
+  }, [labels, matchedFields, project.config]);
 
   useEffect(() => {
     returnFocusTo.current = document.activeElement;
@@ -166,7 +166,7 @@ export function WhyThisStepDrawer({
             <dl className="answers">
               {answers.map((answer) => (
                 <div key={answer.field} className={answer.matched ? "answer is-matched" : "answer"}>
-                  <dt>{labelForField(answer.field)}</dt>
+                  <dt>{labels.field(answer.field)}</dt>
                   <dd>{answer.value}</dd>
                 </div>
               ))}

@@ -19,6 +19,7 @@ import { formatCurrency, formatDateRange } from "@/lib/dates";
 import { feesForStep } from "@/lib/engine/fees";
 import { findDocument, stepDocumentProgress, type DisplayState } from "@/lib/engine/progress";
 import type { StepForecast } from "@/lib/engine/timeline";
+import { useCopy } from "@/lib/i18n/useCopy";
 import { recommendAction, type StepActionKind } from "@/lib/stepActions";
 import type { Bottleneck, FeeBreakdown, InspectionItem, InspectionType, PermitStep, PermitStepStatus, Project } from "@/lib/types";
 
@@ -62,6 +63,7 @@ export function StepDetail({
   onToggleInspection: (id: string, completed: boolean) => void;
 }) {
   const { plainLanguage } = useA11y();
+  const { t } = useCopy();
   const [showFollowUp, setShowFollowUp] = useState(initialFocus === "follow-up");
   const documentsRef = useRef<HTMLElement>(null);
   const steps = project.roadmap.steps;
@@ -79,7 +81,7 @@ export function StepDetail({
     missingDocuments: docs.missing,
     overdue: Boolean(forecast?.overdue),
     blocked: state === "blocked",
-  });
+  }, t);
   const otherIssues = bottlenecks.filter((item) => item.kind === "blocked_dependency" || item.kind === "critical_path_delay");
 
   function scrollToDocuments() {
@@ -109,8 +111,8 @@ export function StepDetail({
 
       <header className="mb-6 mt-1">
         <p className="meta">
-          Step {step.sequence} of {steps.length} · {step.department}
-          {critical && state !== "completed" ? " · sets the finish date" : ""}
+          {t("step.position", { n: step.sequence, total: steps.length, department: step.department })}
+          {critical && state !== "completed" ? t("step.setsFinishSuffix") : ""}
         </p>
         <h2 id="section-heading" ref={headingRef} tabIndex={-1} className="page-title mt-1">
           {step.title}
@@ -125,14 +127,14 @@ export function StepDetail({
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-x-10">
         <div className="lg:col-start-1 lg:row-start-1">
           <NextActionCard
-            eyebrow="Next action"
+            eyebrow={t("step.nextAction")}
             action={action}
             onPerform={perform}
             meta={
               forecast && !forecast.actual ? (
                 <span className="num">
-                  Expected decision {formatDateRange(forecast.earliestEnd, forecast.latestEnd, now)}
-                  {forecast.overdue ? " · past typical review time" : ""}
+                  {t("step.expectedDecision", { range: formatDateRange(forecast.earliestEnd, forecast.latestEnd, now) })}
+                  {forecast.overdue ? t("focus.pastReview") : ""}
                 </span>
               ) : null
             }
@@ -151,7 +153,7 @@ export function StepDetail({
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 {dependents.filter((item) => item.status !== "approved").length ? (
                   <>
-                    <span className="meta">Now you can move on to</span>
+                    <span className="meta">{t("step.nowYouCan")}</span>
                     {dependents
                       .filter((item) => item.status !== "approved")
                       .map((item) => (
@@ -163,7 +165,7 @@ export function StepDetail({
                   </>
                 ) : (
                   <button type="button" className="btn btn-secondary btn-sm" onClick={onBack}>
-                    Back to {backLabel.toLowerCase()}
+                    {t("step.backTo", { label: backLabel.toLowerCase() })}
                   </button>
                 )}
               </div>

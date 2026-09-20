@@ -116,7 +116,7 @@ export function ProjectDashboard({ id }: { id: string }) {
       <AppShell>
         <main id="main" className="container pb-16 pt-6" aria-busy="true">
           <p className="sr-only" role="status">
-            Loading your roadmap…
+            {t("dashboard.loading")}
           </p>
           <div className="skeleton h-4 w-40" />
           <div className="skeleton mt-3 h-8 w-72 max-w-full" />
@@ -134,19 +134,17 @@ export function ProjectDashboard({ id }: { id: string }) {
     return (
       <AppShell>
         <main id="main" className="container-narrow py-16">
-          <h1 className="page-title">{corrupt ? "This project couldn't be opened" : "Project not found"}</h1>
+          <h1 className="page-title">{corrupt ? t("dashboard.corrupt") : t("dashboard.notFound")}</h1>
           <p className="mt-3 text-[var(--ink-2)]">
-            {corrupt
-              ? "The copy saved in this browser is damaged or from an incompatible version. Your other projects are not affected."
-              : "Projects are saved only in the browser where they were created. This one may have been deleted, or the link came from another device."}
+            {corrupt ? t("dashboard.corruptBody") : t("dashboard.notFoundBody")}
           </p>
           {corrupt ? <p className="meta mt-2 font-mono">{state.error}</p> : null}
           <div className="mt-6 flex flex-wrap gap-3">
             <Link className="btn btn-primary" href="/intake">
-              Start a new project
+              {t("dashboard.startNew")}
             </Link>
             <Link className="btn btn-secondary" href="/">
-              Your projects
+              {t("dashboard.yourProjects")}
             </Link>
           </div>
         </main>
@@ -194,11 +192,11 @@ export function ProjectDashboard({ id }: { id: string }) {
             {stepId && !selectedStep ? (
               <div className="callout callout-attention">
                 <h2 id="section-heading" ref={headingRef} tabIndex={-1} className="h3">
-                  That step isn&apos;t on this roadmap
+                  {t("dashboard.missingStep")}
                 </h2>
-                <p className="mt-1">It may have been removed when the project details were edited.</p>
+                <p className="mt-1">{t("dashboard.missingStepBody")}</p>
                 <button type="button" className="link link-target" onClick={() => navigate({ step: null })}>
-                  Back to the roadmap
+                  {t("dashboard.backToRoadmap")}
                 </button>
               </div>
             ) : null}

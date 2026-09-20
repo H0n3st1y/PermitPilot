@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import type { StepAction, StepActionKind } from "@/lib/stepActions";
+import { useCopy } from "@/lib/i18n/useCopy";
 
 /**
  * Renders a step's recommended action. Buttons lock briefly after a click so a double
@@ -32,6 +33,7 @@ export function NextActionCard({
   const [locked, setLocked] = useState(false);
   const lockRef = useRef(false); // synchronous guard: state updates land too late for a fast double click
   const timer = useRef<number | undefined>(undefined);
+  const { t } = useCopy();
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
   function perform(kind: StepActionKind) {
@@ -74,7 +76,7 @@ export function NextActionCard({
           ) : null}
           {onOpen ? (
             <button type="button" className="btn btn-quiet" onClick={onOpen}>
-              Open step <ArrowRight size={15} aria-hidden />
+              {t("action.viewStep")} <ArrowRight size={15} aria-hidden />
             </button>
           ) : null}
         </div>

@@ -4,6 +4,7 @@ import { useCallback, useMemo } from "react";
 import { useA11y } from "@/lib/a11y";
 import { PHRASES, type PhraseKey } from "@/lib/i18n/phrases";
 import {
+  LOCALES,
   resolveCopy,
   type Copy,
   type CopyOptions,
@@ -23,7 +24,7 @@ export interface CopyApi extends CopyOptions {
   /**
    * Picks between two pre-written strings from a fixture. Used where content
    * already ships both reading levels (step descriptions, bottleneck messages)
-   * and there is no translation, so the standard wording stands in for Spanish.
+   * and there is no translation, so the standard wording stands in for other languages.
    */
   reading: (standard: string, plain: string) => string;
   locale: Locale;
@@ -56,8 +57,8 @@ export function useCopy(): CopyApi {
   return { t, copy, reading, locale, plainLanguage };
 }
 
-/** Builds a single-locale phrase from a fixture pair, for `copy()`. */
+/** Builds a phrase from a fixture pair, for `copy()`. Every locale gets the source wording. */
 export function phraseFromPair(standard: string, plain: string): Phrase {
   const value: Copy = { standard, plain };
-  return { en: value, es: value };
+  return Object.fromEntries(LOCALES.map((locale) => [locale, value])) as Phrase;
 }

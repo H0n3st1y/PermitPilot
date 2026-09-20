@@ -4,11 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { RoadmapPreview } from "@/components/intake/ChangePreview";
 import { createProjectFromConfig, regenerateProject } from "@/lib/engine/project";
+import { useCopy } from "@/lib/i18n/useCopy";
+import type { PhraseKey } from "@/lib/i18n/phrases";
 import {
   defaultsForType,
   EMPTY_CONFIG,
   finalizeConfig,
-  INTAKE_STEPS,
+  INTAKE_STEP_KEYS,
   validateIntake,
   type IntakeErrors,
 } from "@/lib/intake";
@@ -34,12 +36,13 @@ export function useIntakeForm() {
   const router = useRouter();
   const params = useSearchParams();
   const editId = params.get("edit");
+  const { t } = useCopy();
 
   const [page, setPage] = useState(0);
   const [config, setConfig] = useState<ProjectConfig>(EMPTY_CONFIG);
   const [typeChosen, setTypeChosen] = useState(false);
   const [errors, setErrors] = useState<IntakeErrors>({});
-  const [formError, setFormError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<PhraseKey | string | null>(null);
   const [existing, setExisting] = useState<Project | null>(null);
   const [preview, setPreview] = useState<RoadmapPreview | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -55,7 +58,7 @@ export function useIntakeForm() {
       if (editId) {
         const result = loadProject(editId);
         if (result.status !== "ok") {
-          setFormError("That project couldn't be found in this browser. You can start a new one below.");
+          setFormError("intake.error.notFound");
         } else {
           setExisting(result.project);
           setConfig({ ...EMPTY_CONFIG, ...result.project.config });
@@ -66,11 +69,11 @@ export function useIntakeForm() {
         if (draft?.config) {
           setConfig({ ...EMPTY_CONFIG, ...draft.config });
           setTypeChosen(Boolean(draft.typeChosen));
-          setPage(Math.min(Math.max(0, draft.page ?? 0), INTAKE_STEPS.length - 1));
+          setPage(Math.min(Math.max(0, draft.page ?? 0), INTAKE_STEP_KEYS.length - 1));
         }
       }
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "Saved answers couldn't be read.");
+      setFormError(error instanceof Error ? error.message : "intake.error.draftRead");
     }
     setLoaded(true);
   }, [editId]);
@@ -146,16 +149,14 @@ export function useIntakeForm() {
       // Answers stay in the form; nothing is lost when a save fails.
       console.error("PermitPilot: could not save project", error);
       setSubmitting(false);
-      setFormError(
-        error instanceof Error ? error.message : "The project couldn't be saved. Your answers are still here.",
-      );
+      setFormError(error instanceof Error ? error.message : "intake.error.saveFailed");
     }
   }, [config, existing, preview, router]);
 
   const next = useCallback(() => {
     if (submitting) return;
     if (page === 0 && !typeChosen) {
-      setErrors({ projectType: "Choose the option that best describes your project." });
+      setErrors({ projectType: "intake.error.projectType" });
       formRef.current?.querySelector<HTMLElement>('input[name="projectType"]')?.focus();
       return;
     }
@@ -165,7 +166,7 @@ export function useIntakeForm() {
       focusFirstError(found);
       return;
     }
-    if (page < INTAKE_STEPS.length - 1) {
+    if (page < INTAKE_STEP_KEYS.length - 1) {
       setPage(page + 1);
       return;
     }
@@ -180,7 +181,14 @@ export function useIntakeForm() {
     else router.push(cancelHref);
   }, [preview, page, router, cancelHref]);
 
-  const isLast = page === INTAKE_STEPS.length - 1;
+  const isLast = page === INTAKE_STEP_KEYS.length - 1;
+  const submitLabel = !isLast
+    ? t("intake.continue")
+    : existing
+      ? preview
+        ? t("intake.applyChanges")
+        : t("intake.previewChanges")
+      : t("intake.buildRoadmap");
 
   return {
     // state
@@ -199,7 +207,7 @@ export function useIntakeForm() {
     // derived
     cancelHref,
     isLast,
-    submitLabel: !isLast ? "Continue" : existing ? (preview ? "Apply changes" : "Preview changes") : "Build my roadmap",
+    submitLabel,
     // actions
     update,
     chooseType,

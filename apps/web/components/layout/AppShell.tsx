@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { DemoNotice } from "@/components/DemoNotice";
 import { HeaderMenu } from "@/components/layout/HeaderMenu";
+import { LanguageToggle } from "@/components/layout/LanguageToggle";
 import { PlainLanguageIndicator } from "@/components/layout/PlainLanguageIndicator";
 import { NAV } from "@/components/layout/nav";
 import { useCopy } from "@/lib/i18n/useCopy";
@@ -39,6 +40,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </li>
               ))}
             </ul>
+            <LanguageToggle />
             <PlainLanguageIndicator />
             <HeaderMenu pathname={pathname} />
           </nav>

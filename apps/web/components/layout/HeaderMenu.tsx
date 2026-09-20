@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
-import { Languages, Menu, SlidersHorizontal, X } from "lucide-react";
+import { Menu, SlidersHorizontal, X } from "lucide-react";
+import { LanguageToggle } from "@/components/layout/LanguageToggle";
 import { NAV } from "@/components/layout/nav";
 import { useA11y } from "@/lib/a11y";
 import { useCopy } from "@/lib/i18n/useCopy";
@@ -11,11 +12,11 @@ import { useCopy } from "@/lib/i18n/useCopy";
  * Display options on desktop; navigation plus display options on mobile.
  * Closes on Escape, outside click, and navigation, and returns focus to the trigger.
  *
- * The three switches are independent: high contrast, reading level, and
+ * The three display preferences are independent: high contrast, reading level, and
  * language each persist separately and any combination is valid.
  */
 export function HeaderMenu({ pathname }: { pathname: string }) {
-  const { highContrast, plainLanguage, locale, setHighContrast, setPlainLanguage, toggleLocale } = useA11y();
+  const { highContrast, plainLanguage, setHighContrast, setPlainLanguage } = useA11y();
   const { t } = useCopy();
   const [open, setOpen] = useState(false);
   const panelId = useId();
@@ -105,24 +106,7 @@ export function HeaderMenu({ pathname }: { pathname: string }) {
             <span className="switch" aria-hidden />
           </button>
 
-          <button
-            type="button"
-            className="switch-row"
-            aria-pressed={locale === "es"}
-            lang={locale === "en" ? "es" : "en"}
-            onClick={toggleLocale}
-          >
-            <span>
-              <span className="inline-flex items-center gap-1.5">
-                <Languages size={15} aria-hidden />
-                {t("a11y.language")}
-              </span>
-              <span className="meta block" lang={locale}>
-                {t("a11y.languageHint")}
-              </span>
-            </span>
-            <span className="switch" aria-hidden />
-          </button>
+          <LanguageToggle variant="row" />
         </div>
       ) : null}
     </div>

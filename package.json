@@ -3,16 +3,9 @@
   "private": true,
   "scripts": {
     "dev": "npm --prefix apps/web run dev",
-    "dev:all": "concurrently -n web,api -c blue,green \"npm --prefix apps/web run dev\" \"npm run api:dev\"",
-    "api:dev": "cd apps/api && python -m uvicorn app.main:app --reload --port 8000",
     "build": "npm --prefix apps/web run build",
     "test": "npm --prefix apps/web test",
-    "test:api": "cd apps/api && python -m pytest",
     "lint": "npm --prefix apps/web run lint",
-    "lint:api": "cd apps/api && python -m ruff check .",
     "typecheck": "npm --prefix apps/web run typecheck"
-  },
-  "devDependencies": {
-    "concurrently": "^9.2.1"
   }
 }

@@ -4,11 +4,20 @@ PermitPilot turns a short project description into a permit roadmap: which permi
 
 > **Demo data.** The bundled municipality, Demo Harbor, MA, is fictional. Its local ordinances and fee schedule are demonstration data. Model-code citations (IBC, IFC, IPC, IMC, IFGC, NEC, FDA Food Code) link to the real publisher text and were checked on 2026-09-17, but local adoption is not verified. Nothing here is a legal determination.
 
+The engines do not change if you point them at a real city: replace the fixtures in `apps/web/fixtures/` with verified local rules, steps, citations, fees, and inspection checklists. Mark a fee Official only when you can cite a published schedule. See [docs/RULES_AND_SOURCES.md](docs/RULES_AND_SOURCES.md).
+
 ## Main flow
 
 Landing → Start project → 3-step intake → Roadmap → Timeline → Permit details → Documents → Fees → Inspection prep → Update status → Complete
 
 The dashboard always shows your next step, why it is next, and what is blocking progress. Views are URL-addressable (`/projects/<id>?view=timeline&step=health-permit`), so the back button and deep links work.
+
+## 3-minute walkthrough (sample project)
+
+1. Open **Explore a sample** (Harbor Kitchen). Zoning is approved; the health permit is stuck in review.
+2. Open the health permit, or the graph's **Why this step?** drawer: the firing rule, the matched answers, and a verified citation. Requirements come from deterministic rules, not a language model.
+3. From the bottleneck radar, draft the follow-up email (nothing is sent). Change a status and watch the timeline and critical-path flag re-forecast from the real dates.
+4. Open **Fees**: calculated vs estimated vs unknown. Unknown amounts are excluded from the total. Try recording a submission with a missing document to see the warning.
 
 ## Features
 
@@ -24,7 +33,7 @@ The dashboard always shows your next step, why it is next, and what is blocking 
 | Inspections | Building, fire, and health checklists chosen by project facts, with completion toggles and a citation per item where one applies. |
 | Citations | Verified links to official model-code text. Fictional local provisions are labelled and have no link. |
 | Stretch | `.ics` calendar export (projected starts, decisions, inspection prep, target date). Follow-up email drafts you review and send yourself; nothing is sent automatically. |
-| Accessibility | Skip link, focus-visible styles, labelled controls, live-region feedback, 44px touch targets, a high-contrast mode, a Plain English mode, and reduced-motion support. Responsive down to 360px. |
+| Accessibility | Skip link, focus-visible styles, labelled controls, live-region feedback, 44px touch targets, a high-contrast mode, a Plain English mode, eight interface languages (English, Chinese, Hindi, Spanish, French, Arabic, Bengali, Portuguese), and reduced-motion support. Responsive down to 360px. Permit titles and cited legal text stay in the source language. |
 
 ## Architecture (web app)
 
@@ -49,27 +58,24 @@ apps/web/
 
 Only user progress is persisted (statuses and history, uploads, checklist ticks). Forecasts, fees, inspections, and bottlenecks are always derived from config plus steps, so there is one source of truth.
 
-`apps/api` is an optional FastAPI prototype with its own smaller data set and an in-memory store. The web app does not call it.
-
 ## Run locally
 
-Prerequisites: Node.js 20+ (Python 3.12+ only for the optional API).
+Prerequisites: Node.js 20+.
 
 ```bash
 npm --prefix apps/web install
 npm run dev
 ```
 
-Then open http://localhost:3000. To also run the API prototype: `pip install -r apps/api/requirements.txt`, then `npm run dev:all`.
+Then open http://localhost:3000.
 
 ## Verify
 
 ```bash
 npm run typecheck
 npm run lint
-npm test          # vitest: rules, dependencies, forecast, progress, fees, inspections, migration, .ics
+npm test          # vitest: rules, dependencies, forecast, progress, fees, inspections, migration, copy
 npm run build
-npm run test:api  # optional, pytest
 ```
 
 ## Authoring
@@ -79,6 +85,6 @@ See [docs/RULES_AND_SOURCES.md](docs/RULES_AND_SOURCES.md) for adding rules, cit
 ## Known limitations
 
 - Single-device storage. There are no accounts or sync, and clearing site data removes projects and files.
-- The upload check covers the declared type and size, not the file's byte signature. Files are not scanned.
+- Uploads are checked for declared type, size, and matching file signatures (PDF, PNG, JPEG, WebP). Files are not malware-scanned.
 - Durations and fees are demonstration configuration and have not been checked against a real municipality.
 - An AI explainer is not included. If one is added, it must only paraphrase retrieved verified sources and must never add or remove requirements.

@@ -3,6 +3,7 @@
 import { Minus, Plus } from "lucide-react";
 import { StepHeading } from "@/components/intake/fields";
 import type { RoadmapChange } from "@/lib/engine/project";
+import { useCopy } from "@/lib/i18n/useCopy";
 import type { RefObject } from "react";
 
 export type RoadmapPreview = RoadmapChange & { droppedDocuments: number };
@@ -20,29 +21,29 @@ export function ChangePreview({
   preview: RoadmapPreview;
   headingRef: RefObject<HTMLHeadingElement | null>;
 }) {
+  const { t } = useCopy();
   const unchanged = preview.added.length === 0 && preview.removed.length === 0;
   return (
     <div className="space-y-5">
-      <StepHeading headingRef={headingRef} title="Review roadmap changes">
-        We re-ran the rules with your edits. Progress on steps that stay is kept.
+      <StepHeading headingRef={headingRef} title={t("intake.preview.title")}>
+        {t("intake.preview.lede")}
       </StepHeading>
 
-      {unchanged ? (
-        <div className="callout callout-neutral">The same steps still apply. Dates and fees will update.</div>
-      ) : null}
+      {unchanged ? <div className="callout callout-neutral">{t("intake.preview.unchanged")}</div> : null}
 
       {preview.added.length ? (
-        <ChangeList title="New steps" steps={preview.added.map((step) => step.title)} icon="add" />
+        <ChangeList title={t("intake.preview.added")} steps={preview.added.map((step) => step.title)} icon="add" />
       ) : null}
 
       {preview.removed.length ? (
-        <ChangeList title="No longer required" steps={preview.removed.map((step) => step.title)} icon="remove" />
+        <ChangeList title={t("intake.preview.removed")} steps={preview.removed.map((step) => step.title)} icon="remove" />
       ) : null}
 
       {preview.droppedDocuments ? (
         <div className="callout callout-attention">
-          {preview.droppedDocuments} uploaded document
-          {preview.droppedDocuments === 1 ? " belongs" : "s belong"} to removed steps and will be deleted.
+          {preview.droppedDocuments === 1
+            ? t("intake.preview.droppedOne")
+            : t("intake.preview.droppedMany", { count: preview.droppedDocuments })}
         </div>
       ) : null}
     </div>

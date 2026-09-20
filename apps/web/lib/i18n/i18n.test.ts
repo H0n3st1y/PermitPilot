@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 import { evaluateRules } from "@/lib/engine/rules";
 import { baseConfig } from "@/lib/engine/testUtils";
 import { PHRASES } from "@/lib/i18n/phrases";
-import { interpolate, LOCALES, resolveCopy, type Phrase } from "@/lib/i18n/types";
+import { parseLocale } from "@/lib/i18n/localeCookie";
+import { interpolate, LOCALES, localeDir, resolveCopy, type Phrase } from "@/lib/i18n/types";
 
 const entries = Object.entries(PHRASES) as [string, Phrase][];
 
@@ -25,6 +26,7 @@ describe("the copy dictionary", () => {
       const expected = slots(phrase.en.standard);
       for (const locale of LOCALES) {
         const copy = phrase[locale];
+        if (!copy) continue;
         expect(slots(copy.standard), `${key}.${locale}.standard`).toEqual(expected);
         if (copy.plain) expect(slots(copy.plain), `${key}.${locale}.plain`).toEqual(expected);
       }
@@ -35,6 +37,7 @@ describe("the copy dictionary", () => {
     const phrase: Phrase = { en: { standard: "Roadmap" }, es: { standard: "Ruta" } };
     expect(resolveCopy(phrase, { locale: "en", plainLanguage: true })).toBe("Roadmap");
     expect(resolveCopy(phrase, { locale: "es", plainLanguage: true })).toBe("Ruta");
+    expect(resolveCopy({ en: { standard: "Roadmap" } }, { locale: "zh", plainLanguage: false })).toBe("Roadmap");
   });
 
   it("selects locale and reading level independently", () => {
@@ -52,6 +55,18 @@ describe("the copy dictionary", () => {
     expect(interpolate("Contact {department} about {thing}", { department: "Fire" })).toBe(
       "Contact Fire about {thing}",
     );
+  });
+
+  it("accepts the eight interface locales and falls back to English otherwise", () => {
+    expect(LOCALES).toEqual(["en", "zh", "hi", "es", "fr", "ar", "bn", "pt"]);
+    expect(parseLocale("es")).toBe("es");
+    expect(parseLocale("zh")).toBe("zh");
+    expect(parseLocale("ar")).toBe("ar");
+    expect(parseLocale("en")).toBe("en");
+    expect(parseLocale("zz")).toBe("en");
+    expect(parseLocale(undefined)).toBe("en");
+    expect(localeDir("ar")).toBe("rtl");
+    expect(localeDir("hi")).toBe("ltr");
   });
 });
 

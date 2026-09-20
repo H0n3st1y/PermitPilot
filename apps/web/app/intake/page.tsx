@@ -9,7 +9,9 @@ import { ProjectTypeStep } from "@/components/intake/ProjectTypeStep";
 import { SpaceStep } from "@/components/intake/SpaceStep";
 import { AppShell } from "@/components/layout/AppShell";
 import { useIntakeForm } from "@/lib/hooks/useIntakeForm";
-import { INTAKE_STEPS } from "@/lib/intake";
+import { isPhraseKey } from "@/lib/i18n/labels";
+import { useCopy } from "@/lib/i18n/useCopy";
+import { INTAKE_STEP_KEYS } from "@/lib/intake";
 
 /**
  * The intake wizard's shell: progress, the current step, and the controls.
@@ -19,6 +21,7 @@ import { INTAKE_STEPS } from "@/lib/intake";
  */
 function IntakeForm() {
   const form = useIntakeForm();
+  const { t } = useCopy();
   const { config, errors, headingRef, preview, page } = form;
 
   if (!form.loaded) {
@@ -35,22 +38,22 @@ function IntakeForm() {
     <main id="main" className="container-narrow pb-16 pt-6">
       <div className="mb-4 flex items-center justify-between gap-3">
         <p className="meta">
-          {form.existing ? `Editing ${form.existing.config.name}` : "New project · answers save as you go"}
+          {form.existing ? t("intake.editing", { name: form.existing.config.name }) : t("intake.newProject")}
         </p>
         <Link className="nav-link text-sm" href={form.cancelHref}>
-          {form.existing ? "Cancel" : "Save & exit"}
+          {form.existing ? t("intake.cancel") : t("intake.saveExit")}
         </Link>
       </div>
 
-      <ol className="stepper" aria-label="Progress">
-        {INTAKE_STEPS.map((label, index) => (
+      <ol className="stepper" aria-label={t("intake.progress")}>
+        {INTAKE_STEP_KEYS.map((key, index) => (
           <li
-            key={label}
+            key={key}
             className={index < page ? "is-done" : index === page ? "is-current" : ""}
             aria-current={index === page ? "step" : undefined}
           >
-            <span className="num">{index + 1}</span> <span className="stepper-label">{label}</span>
-            <span className="sr-only">{index < page ? " (done)" : ""}</span>
+            <span className="num">{index + 1}</span> <span className="stepper-label">{t(key)}</span>
+            <span className="sr-only">{index < page ? t("intake.stepDone") : ""}</span>
           </li>
         ))}
       </ol>
@@ -66,7 +69,7 @@ function IntakeForm() {
       >
         {form.formError ? (
           <div className="callout callout-blocked mb-6" role="alert">
-            {form.formError}
+            {isPhraseKey(form.formError) ? t(form.formError) : form.formError}
           </div>
         ) : null}
 
@@ -102,7 +105,7 @@ function IntakeForm() {
 
         <div className="mt-10 flex items-center justify-between gap-3 border-t border-[var(--line)] pt-5">
           <button className="btn btn-quiet" type="button" onClick={form.back}>
-            <ArrowLeft size={16} aria-hidden /> Back
+            <ArrowLeft size={16} aria-hidden /> {t("action.back")}
           </button>
           <button
             className={`btn btn-primary btn-lg min-w-[11rem] ${form.submitting ? "is-busy" : ""}`}
@@ -110,12 +113,12 @@ function IntakeForm() {
             aria-disabled={form.submitting}
           >
             {form.submitting ? <Loader2 size={17} className="spin" aria-hidden /> : null}
-            {form.submitting ? "Building…" : form.submitLabel}
+            {form.submitting ? t("intake.building") : form.submitLabel}
           </button>
         </div>
 
         {form.existing && form.isLast && !preview && form.formError === null ? (
-          <p className="meta mt-3 text-right">Nothing changes until you apply.</p>
+          <p className="meta mt-3 text-right">{t("intake.nothingChanges")}</p>
         ) : null}
       </form>
     </main>

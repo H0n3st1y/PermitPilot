@@ -14,16 +14,8 @@ import { pendingDependencies, stepDocumentProgress, type DisplayState } from "@/
 import { estimateOccupantLoad } from "@/lib/engine/rules";
 import { usesValuation } from "@/lib/intake";
 import type { TimelineForecast } from "@/lib/engine/timeline";
-import { recommendAction, situationFor, type StepActionKind } from "@/lib/stepActions";
-import {
-  OCCUPANCY_LABELS,
-  PROJECT_TYPE_LABELS,
-  TRADE_LABELS,
-  ZONE_LABELS,
-  type PermitStep,
-  type PermitStepStatus,
-  type Project,
-} from "@/lib/types";
+import { recommendAction, situationFor, joinNames, type StepActionKind } from "@/lib/stepActions";
+import type { PermitStep, PermitStepStatus, Project } from "@/lib/types";
 
 export type StepFocus = "documents" | "follow-up";
 
@@ -76,7 +68,7 @@ export function RoadmapOverview({
   const focusStep = actions[0] ?? overdueReview ?? steps.find((step) => step.status === "submitted" || step.status === "in_review");
   const focusState = focusStep ? display.get(focusStep.id) ?? "current" : "current";
   const focusAction = focusStep
-    ? recommendAction(focusStep, situationFor(focusStep, steps, project.documents, forecast, focusState))
+    ? recommendAction(focusStep, situationFor(focusStep, steps, project.documents, forecast, focusState), t)
     : null;
 
   function perform(step: PermitStep, kind: StepActionKind) {
@@ -100,18 +92,15 @@ export function RoadmapOverview({
       <div className="space-y-4">
         {progress.complete ? (
           <section className="next-action next-action-done" aria-labelledby="section-heading">
-            <p className="label">Project complete</p>
+            <p className="label">{t("action.projectComplete")}</p>
             <h2 id="section-heading" ref={headingRef} tabIndex={-1} className="h2 mt-1">
-              Every step is approved
+              {t("action.everyApproved")}
             </h2>
-            <p className="mt-1 max-w-2xl text-[var(--ink-2)]">
-              Keep your approvals and documents together. Before you open, occupy, or hold the event, confirm with each
-              department that nothing else is outstanding.
-            </p>
+            <p className="mt-1 max-w-2xl text-[var(--ink-2)]">{t("action.completeBody")}</p>
           </section>
         ) : focusStep && focusAction ? (
           <NextActionCard
-            eyebrow={`Your next step · ${focusStep.department}`}
+            eyebrow={t("action.nextStepEyebrow", { department: focusStep.department })}
             title={focusStep.title}
             headingId="section-heading"
             headingRef={headingRef}
@@ -122,7 +111,7 @@ export function RoadmapOverview({
           >
             {actions.length > 1 ? (
               <p className="meta mt-3">
-                Also ready to work on:{" "}
+                {t("action.alsoReady")}{" "}
                 {actions.slice(1, 4).map((step, index) => (
                   <span key={step.id}>
                     {index > 0 ? ", " : ""}
@@ -137,9 +126,9 @@ export function RoadmapOverview({
         ) : (
           <section className="next-action" aria-labelledby="section-heading">
             <h2 id="section-heading" ref={headingRef} tabIndex={-1} className="h2">
-              Nothing to do right now
+              {t("action.nothingToDo")}
             </h2>
-            <p className="mt-1 text-[var(--ink-2)]">Every open step is waiting on a department.</p>
+            <p className="mt-1 text-[var(--ink-2)]">{t("action.waitingOnDept")}</p>
           </section>
         )}
 
@@ -148,7 +137,7 @@ export function RoadmapOverview({
         {attention.length > 0 ? (
           <section aria-labelledby="attention-heading">
             <h2 id="attention-heading" className="label mb-1">
-              Also needs attention
+              {t("roadmap.alsoAttention")}
             </h2>
             <ul className="divided surface">
               {attention.map((item) => {
@@ -176,11 +165,10 @@ export function RoadmapOverview({
         <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
             <h2 id="roadmap-heading" className="h2">
-              Roadmap
+              {t("tab.roadmap")}
             </h2>
             <p className="meta mt-0.5">
-              {steps.length} steps across {departments} departments. Each stage starts when the previous one is approved;
-              steps in the same stage can run at the same time.
+              {t("roadmap.lede", { steps: steps.length, departments })}
             </p>
           </div>
           <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-[var(--ink-2)]" aria-label={t("graph.legend")}>
@@ -199,9 +187,13 @@ export function RoadmapOverview({
             return (
               <li key={index} className="stage">
                 <div className="stage-head">
-                  <h3 className="h3">Stage {index + 1}</h3>
+                  <h3 className="h3">{t("roadmap.stage", { n: index + 1 })}</h3>
                   <span className="meta num">
-                    {done === stage.length ? "Complete" : index === 0 ? "Start here" : `${done}/${stage.length} approved`}
+                    {done === stage.length
+                      ? t("roadmap.complete")
+                      : index === 0
+                        ? t("roadmap.startHere")
+                        : t("header.approvedCount", { approved: done, total: stage.length })}
                   </span>
                 </div>
                 <ul>
@@ -235,7 +227,7 @@ export function RoadmapOverview({
                               <NodeSummary step={step} state={state} byId={byId} project={project} forecast={forecast} now={now} />
                             </span>
                             {critical.has(step.id) && state !== "completed" ? (
-                              <span className="block">Sets the finish date</span>
+                              <span className="block">{t("roadmap.setsFinish")}</span>
                             ) : null}
                           </span>
                         </button>
@@ -249,7 +241,13 @@ export function RoadmapOverview({
         </ol>
         {hoveredStep && hoveredStep.dependencies.length > 0 ? (
           <p className="meta mt-2 hidden lg:block" aria-hidden>
-            {hoveredStep.shortTitle} needs {hoveredStep.dependencies.map((id) => byId.get(id)?.shortTitle ?? id).join(" and ")} approved first (dashed outline).
+            {t("roadmap.hoverNeeds", {
+              step: hoveredStep.shortTitle,
+              list: joinNames(
+                hoveredStep.dependencies.map((id) => byId.get(id)?.shortTitle ?? id),
+                t,
+              ),
+            })}
           </p>
         ) : null}
       </section>
@@ -257,7 +255,7 @@ export function RoadmapOverview({
       {roadmap.warnings.length > 0 ? (
         <section aria-labelledby="warnings-heading" className="max-w-3xl">
           <h2 id="warnings-heading" className="h2">
-            Confirm with the city
+            {t("roadmap.confirmCity")}
           </h2>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-[var(--ink-2)]">
             {roadmap.warnings.map((warning) => (
@@ -268,23 +266,31 @@ export function RoadmapOverview({
       ) : null}
 
       <details className="disclosure">
-        <summary>Project details used by the rules</summary>
+        <summary>{t("facts.summary")}</summary>
         <dl className="facts mt-3">
-          <Fact label="Project type" value={PROJECT_TYPE_LABELS[config.projectType]} />
-          <Fact label="Floor area" value={`${config.squareFootage.toLocaleString()} sq ft`} />
-          <Fact label="Occupancy" value={OCCUPANCY_LABELS[config.occupancy]} />
-          <Fact label={plainLanguage ? "People the space is sized for" : "Design occupant load"} value={`${estimateOccupantLoad(config.squareFootage, config.occupancy)}`} />
-          <Fact label="Zoning district" value={ZONE_LABELS[config.zone]} />
-          {usesValuation(config.projectType) ? <Fact label="Construction cost" value={`$${config.estimatedValuation.toLocaleString()}`} /> : null}
-          <Fact label="Trades" value={config.trades.length ? config.trades.map((trade) => TRADE_LABELS[trade]).join(", ") : "None"} />
+          <Fact label={t("field.projectType")} value={labels.projectType(config.projectType)} />
+          <Fact label={t("field.squareFootage")} value={t("header.squareFeet", { value: config.squareFootage.toLocaleString() })} />
+          <Fact label={t("field.occupancy")} value={labels.occupancy(config.occupancy)} />
+          <Fact
+            label={plainLanguage ? t("field.occupantLoadPlain") : t("field.occupantLoad")}
+            value={`${estimateOccupantLoad(config.squareFootage, config.occupancy)}`}
+          />
+          <Fact label={t("field.zone")} value={labels.zone(config.zone)} />
+          {usesValuation(config.projectType) ? (
+            <Fact label={t("field.constructionCost")} value={`$${config.estimatedValuation.toLocaleString()}`} />
+          ) : null}
+          <Fact
+            label={t("field.trades")}
+            value={config.trades.length ? config.trades.map((trade) => labels.trade(trade)).join(", ") : t("common.none")}
+          />
           {config.projectType === "public_event" ? (
-            <Fact label="Expected attendance" value={`${config.visitorCount ?? 0}`} />
+            <Fact label={t("field.visitorCount")} value={`${config.visitorCount ?? 0}`} />
           ) : (
-            <Fact label="Home-based" value={config.homeBased ? "Yes" : "No"} />
+            <Fact label={t("field.homeBased")} value={t(config.homeBased ? "common.yes" : "common.no")} />
           )}
         </dl>
         <p className="meta mt-3">
-          Rules version {roadmap.rulesVersion}, generated {formatLongDate(localDay(roadmap.generatedAt))}.
+          {t("facts.rulesVersion", { version: roadmap.rulesVersion, date: formatLongDate(localDay(roadmap.generatedAt)) })}
         </p>
       </details>
     </div>
@@ -293,13 +299,14 @@ export function RoadmapOverview({
 
 function FocusMeta({ step, forecast, now }: { step: PermitStep; forecast: TimelineForecast; now: Date }) {
   const labels = useLabels();
+  const { t } = useCopy();
   const entry = forecast.steps.get(step.id);
   const statusLabel = labels.status(step.status);
   if (!entry) return null;
   return (
     <span className="num">
-      {statusLabel} · expected decision {formatDateRange(entry.earliestEnd, entry.latestEnd, now)}
-      {entry.overdue ? " · past typical review time" : ""}
+      {t("focus.expectedDecision", { status: statusLabel, range: formatDateRange(entry.earliestEnd, entry.latestEnd, now) })}
+      {entry.overdue ? t("focus.pastReview") : ""}
     </span>
   );
 }
@@ -320,24 +327,25 @@ function NodeSummary({
   now: Date;
 }) {
   const labels = useLabels();
+  const { t } = useCopy();
   const entry = forecast.steps.get(step.id);
   const docs = stepDocumentProgress(project.documents, step);
-  const pending = pendingDependencies(step, byId).map((dep) => dep.shortTitle).join(", ");
+  const pending = joinNames(pendingDependencies(step, byId).map((dep) => dep.shortTitle), t);
 
-  if (state === "completed") return <>Approved {entry ? formatDateRange(entry.latestEnd, entry.latestEnd, now) : ""}</>;
-  if (state === "blocked") return <>Blocked by {pending}</>;
-  if (state === "upcoming") return <>After {pending}</>;
+  if (state === "completed") return <>{t("node.approvedOn", { date: entry ? formatDateRange(entry.latestEnd, entry.latestEnd, now) : "" })}</>;
+  if (state === "blocked") return <>{t("node.blockedBy", { list: pending })}</>;
+  if (state === "upcoming") return <>{t("node.after", { list: pending })}</>;
   if (state === "attention") {
-    if (step.status === "needs_changes") return <>Changes requested</>;
-    if (entry?.overdue) return <>Review overdue</>;
-    return <>{docs.missing.length} document{docs.missing.length === 1 ? "" : "s"} missing</>;
+    if (step.status === "needs_changes") return <>{t("node.changesRequested")}</>;
+    if (entry?.overdue) return <>{t("node.reviewOverdue")}</>;
+    return <>{t(docs.missing.length === 1 ? "node.docsMissingOne" : "node.docsMissingMany", { count: docs.missing.length })}</>;
   }
-  if (step.status === "not_started") return <>Ready to start</>;
-  if (step.status === "preparing") return <>Preparing · {docs.complete}/{docs.required} docs</>;
+  if (step.status === "not_started") return <>{t("node.ready")}</>;
+  if (step.status === "preparing") return <>{t("node.preparing", { complete: docs.complete, required: docs.required })}</>;
   return (
     <>
       {labels.status(step.status)}
-      {entry ? ` · decision ${formatDateRange(entry.earliestEnd, entry.latestEnd, now)}` : ""}
+      {entry ? t("node.decision", { range: formatDateRange(entry.earliestEnd, entry.latestEnd, now) }) : ""}
     </>
   );
 }

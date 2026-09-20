@@ -1,5 +1,7 @@
 import { pendingDependencies, stepDocumentProgress, type DisplayState } from "@/lib/engine/progress";
 import type { TimelineForecast } from "@/lib/engine/timeline";
+import type { PhraseKey } from "@/lib/i18n/phrases";
+import type { CopyVars } from "@/lib/i18n/types";
 import type { PermitStep, PermitStepStatus, UploadedDocument } from "@/lib/types";
 
 export type StepActionKind =
@@ -27,101 +29,108 @@ export interface StepSituation {
   blocked: boolean;
 }
 
-function list(names: string[]): string {
-  if (names.length <= 1) return names[0] ?? "";
-  if (names.length === 2) return `${names[0]} and ${names[1]}`;
-  return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
-}
+export type Translate = (key: PhraseKey, vars?: CopyVars) => string;
 
-const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
+export function joinNames(names: string[], t: Translate): string {
+  if (names.length <= 1) return names[0] ?? "";
+  if (names.length === 2) return `${names[0]} ${t("common.and")} ${names[1]}`;
+  return `${names.slice(0, -1).join(", ")} ${t("common.and")} ${names[names.length - 1]}`;
+}
 
 /**
  * The single most useful next move for a step, with the button that performs it.
  * Pure: derived from status, prerequisites, documents, and review timing only.
+ * Wording comes from `t` so locale stays downstream of the decision.
  */
-export function recommendAction(step: PermitStep, situation: StepSituation): StepAction {
+export function recommendAction(step: PermitStep, situation: StepSituation, t: Translate): StepAction {
   const { pendingNames, missingDocuments, overdue, blocked } = situation;
-  const dept = step.department;
+  const department = step.department;
+  const pending = joinNames(pendingNames, t);
+  const missing = joinNames(missingDocuments, t);
 
   if (step.status === "approved") {
-    return { headline: "Approved", detail: "Nothing more to do for this step. Keep the approval with your records.", tone: "done" };
+    return { headline: t("action.approved.headline"), detail: t("action.approved.detail"), tone: "done" };
   }
 
   if (step.status === "needs_changes") {
     return {
-      headline: "Fix the requested changes and resubmit",
+      headline: t("action.needsChanges.headline"),
       detail: missingDocuments.length
-        ? `Upload ${list(missingDocuments)}, then resubmit to ${dept}.`
-        : `Update the documents ${dept} flagged, resubmit, then record it here.`,
+        ? t("action.needsChanges.detailMissing", { list: missing, department })
+        : t("action.needsChanges.detailReady", { department }),
       tone: "attention",
       primary: missingDocuments.length
-        ? { label: "Upload documents", action: { kind: "documents" } }
-        : { label: "Mark as resubmitted", action: { kind: "status", status: "submitted" } },
-      secondary: { label: "Draft a question to the department", action: { kind: "follow-up" } },
+        ? { label: t("action.uploadDocuments"), action: { kind: "documents" } }
+        : { label: t("action.markResubmitted"), action: { kind: "status", status: "submitted" } },
+      secondary: { label: t("action.draftQuestion"), action: { kind: "follow-up" } },
     };
   }
 
   if (step.status === "submitted" || step.status === "in_review") {
     if (overdue) {
       return {
-        headline: `Follow up with ${dept}`,
-        detail: "This review is past its usual maximum. A short, specific email often gets it moving.",
+        headline: t("action.followUp.headline", { department }),
+        detail: t("action.followUp.detail"),
         tone: "attention",
-        primary: { label: "Draft follow-up email", action: { kind: "follow-up" } },
+        primary: { label: t("action.draftFollowUp"), action: { kind: "follow-up" } },
         secondary:
           step.status === "in_review"
-            ? { label: "Record approval", action: { kind: "status", status: "approved" } }
-            : { label: "Mark in review", action: { kind: "status", status: "in_review" } },
+            ? { label: t("action.recordApproval"), action: { kind: "status", status: "approved" } }
+            : { label: t("action.markInReview"), action: { kind: "status", status: "in_review" } },
       };
     }
     return step.status === "submitted"
       ? {
-          headline: `Waiting for ${dept} to accept the application`,
-          detail: "Record the change when the department confirms review has started.",
+          headline: t("action.waiting.headline", { department }),
+          detail: t("action.waiting.detail"),
           tone: "primary",
-          primary: { label: "Mark in review", action: { kind: "status", status: "in_review" } },
+          primary: { label: t("action.markInReview"), action: { kind: "status", status: "in_review" } },
         }
       : {
-          headline: `${dept} is reviewing`,
-          detail: "Record the decision when you hear back.",
+          headline: t("action.reviewing.headline", { department }),
+          detail: t("action.reviewing.detail"),
           tone: "primary",
-          primary: { label: "Record approval", action: { kind: "status", status: "approved" } },
-          secondary: { label: "Changes requested", action: { kind: "status", status: "needs_changes" } },
+          primary: { label: t("action.recordApproval"), action: { kind: "status", status: "approved" } },
+          secondary: { label: t("action.changesRequested"), action: { kind: "status", status: "needs_changes" } },
         };
   }
 
   if (pendingNames.length > 0) {
     return {
-      headline: blocked ? `Blocked by ${list(pendingNames)}` : `Starts after ${list(pendingNames)}`,
+      headline: blocked ? t("action.blocked.headline", { list: pending }) : t("action.startsAfter.headline", { list: pending }),
       detail: missingDocuments.length
-        ? `You can gather ${plural(missingDocuments.length, "document")} now so you can submit as soon as it's clear.`
-        : "Your documents are ready. Submit once the earlier steps are approved.",
+        ? t(missingDocuments.length === 1 ? "action.pending.detailGatherOne" : "action.pending.detailGatherMany", {
+            count: missingDocuments.length,
+          })
+        : t("action.pending.detailReady"),
       tone: blocked ? "blocked" : "primary",
       primary:
         step.status === "not_started" && missingDocuments.length
-          ? { label: "Start preparing", action: { kind: "status", status: "preparing" } }
+          ? { label: t("action.startPreparing"), action: { kind: "status", status: "preparing" } }
           : missingDocuments.length
-            ? { label: "Upload documents", action: { kind: "documents" } }
+            ? { label: t("action.uploadDocuments"), action: { kind: "documents" } }
             : undefined,
     };
   }
 
   if (missingDocuments.length > 0) {
     return {
-      headline: `Upload ${plural(missingDocuments.length, "required document")}`,
-      detail: `${list(missingDocuments)}. Then submit to ${dept}.`,
+      headline: t(missingDocuments.length === 1 ? "action.upload.headlineOne" : "action.upload.headlineMany", {
+        count: missingDocuments.length,
+      }),
+      detail: t("action.upload.detail", { list: missing, department }),
       tone: step.status === "preparing" ? "attention" : "primary",
-      primary: { label: "Upload documents", action: { kind: "documents" } },
+      primary: { label: t("action.uploadDocuments"), action: { kind: "documents" } },
       secondary:
-        step.status === "not_started" ? { label: "Mark as preparing", action: { kind: "status", status: "preparing" } } : undefined,
+        step.status === "not_started" ? { label: t("action.markPreparing"), action: { kind: "status", status: "preparing" } } : undefined,
     };
   }
 
   return {
-    headline: `Submit the application to ${dept}`,
-    detail: "All required documents are uploaded. Submit through the department, then record it here.",
+    headline: t("action.submit.headline", { department }),
+    detail: t("action.submit.detail"),
     tone: "primary",
-    primary: { label: "Mark as submitted", action: { kind: "status", status: "submitted" } },
+    primary: { label: t("action.markSubmitted"), action: { kind: "status", status: "submitted" } },
   };
 }
 

@@ -5,6 +5,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
+import { useA11y } from "@/lib/a11y";
 import { createProject, saveProject } from "@/lib/store";
 import { useAuth } from "@/lib/supabase";
 import {
@@ -142,6 +143,7 @@ function IntakeForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
+  const { t } = useA11y();
   const welcome = searchParams.get("welcome") === "1";
   const showPresets = Boolean(user?.isDemoJudge);
   const [step, setStep] = useState(1);
@@ -193,15 +195,15 @@ function IntakeForm() {
 
   function next() {
     if (step === 1 && (!draft.state || !useCaseChosen)) {
-      setError("Choose your state and the closest match for what you are opening.");
+      setError(t("intake.errState"));
       return;
     }
     if (step === 2 && (draft.squareFootage <= 0 || draft.estimatedValuation < 0)) {
-      setError("Enter the size of the space and a rough cost.");
+      setError(t("intake.errSize"));
       return;
     }
     if (step === 3 && !draft.name.trim()) {
-      setError("Give your project a name to continue.");
+      setError(t("intake.errName"));
       return;
     }
     setError("");
@@ -222,20 +224,18 @@ function IntakeForm() {
   }
 
   return (
-    <AppShell eyebrow={welcome ? "Welcome — let’s set up your project" : "Your project"}>
+    <AppShell eyebrow={welcome ? t("intake.welcomeEyebrow") : t("intake.yourProject")}>
       <main id="main" className="mx-auto max-w-2xl px-4 py-8">
         {welcome ? (
           <section className="panel mb-5">
             <p className="eyebrow inline-flex items-center gap-1.5">
               <Sparkles size={14} aria-hidden />
-              About 1 minute
+              {t("intake.aboutMinute")}
             </p>
             <h1 className="mt-1 font-serif text-2xl text-[var(--navy)]">
-              A few questions so we can build your checklist
+              {t("intake.welcomeTitle")}
             </h1>
-            <p className="mt-2 text-sm text-[var(--ink)]">
-              Tell us your state and what you’re opening. We’ll build a permit map for <strong>your</strong> restaurant, salon, shop, or event — not a sample business.
-            </p>
+            <p className="mt-2 text-sm text-[var(--ink)]">{t("intake.welcomeBody")}</p>
           </section>
         ) : null}
 
@@ -245,11 +245,9 @@ function IntakeForm() {
               <div>
                 <p className="eyebrow inline-flex items-center gap-1.5">
                   <Sparkles size={14} aria-hidden />
-                  Zero-typing presets
+                  {t("intake.presetsTitle")}
                 </p>
-                <p className="mt-1 text-sm text-[var(--muted)]">
-                  Testing the rules engine? Pick a preset to pre-fill all 3 steps or generate the roadmap in one click.
-                </p>
+                <p className="mt-1 text-sm text-[var(--muted)]">{t("intake.presetsBody")}</p>
               </div>
             </div>
             <div className="mt-3 grid gap-2.5 sm:grid-cols-3">
@@ -268,14 +266,14 @@ function IntakeForm() {
                       className="button primary !min-h-[34px] !px-2.5 text-xs"
                       onClick={() => applyPreset(preset.config, true)}
                     >
-                      Launch roadmap
+                      {t("intake.launch")}
                     </button>
                     <button
                       type="button"
                       className="button secondary !min-h-[34px] !px-2.5 text-xs"
                       onClick={() => applyPreset(preset.config, false)}
                     >
-                      Fill form
+                      {t("intake.fillForm")}
                     </button>
                   </div>
                 </div>
@@ -286,8 +284,8 @@ function IntakeForm() {
 
         <div className="mb-4 flex items-end justify-between gap-3">
           <div>
-            <p className="eyebrow">Step {step} of 3</p>
-            <div className="mt-2 flex gap-1" aria-label={`Step ${step} of 3`}>
+            <p className="eyebrow">{t("intake.stepOf", { step })}</p>
+            <div className="mt-2 flex gap-1" aria-label={t("intake.stepOf", { step })}>
               {[1, 2, 3].map((value) => (
                 <span
                   key={value}
@@ -297,7 +295,7 @@ function IntakeForm() {
             </div>
           </div>
           <Link className="nav-link" href="/">
-            Save & exit
+            {t("intake.saveExit")}
           </Link>
         </div>
         <div className="panel">
@@ -308,12 +306,10 @@ function IntakeForm() {
           ) : null}
           {step === 1 ? (
             <>
-              <h1 className="font-serif text-3xl text-[var(--navy)]">What are you planning?</h1>
-              <p className="mt-2 text-[var(--muted)]">
-                Start with your state, then pick the closest match. This chooses which permits show up on your map.
-              </p>
+              <h1 className="font-serif text-3xl text-[var(--navy)]">{t("intake.step1Title")}</h1>
+              <p className="mt-2 text-[var(--muted)]">{t("intake.step1Body")}</p>
               <div className="field">
-                <label htmlFor="state">Which state are you in?</label>
+                <label htmlFor="state">{t("intake.whichState")}</label>
                 <select
                   id="state"
                   value={draft.state ?? DEFAULT_STATE}
@@ -353,12 +349,10 @@ function IntakeForm() {
           ) : null}
           {step === 2 ? (
             <>
-              <h1 className="font-serif text-3xl text-[var(--navy)]">How big is the space?</h1>
-              <p className="mt-2 text-[var(--muted)]">
-                Size, location, and the kind of work change fees and which departments get involved.
-              </p>
+              <h1 className="font-serif text-3xl text-[var(--navy)]">{t("intake.step2Title")}</h1>
+              <p className="mt-2 text-[var(--muted)]">{t("intake.step2Body")}</p>
               <div className="field">
-                <label htmlFor="sqft">About how many square feet?</label>
+                <label htmlFor="sqft">{t("intake.sqft")}</label>
                 <input
                   id="sqft"
                   type="number"
@@ -369,7 +363,7 @@ function IntakeForm() {
                 />
               </div>
               <div className="field">
-                <label htmlFor="occupancy">What kind of space is this?</label>
+                <label htmlFor="occupancy">{t("intake.kindOfSpace")}</label>
                 <select
                   id="occupancy"
                   value={draft.occupancy}
@@ -383,7 +377,7 @@ function IntakeForm() {
                 </select>
               </div>
               <div className="field">
-                <label htmlFor="zone">What part of town?</label>
+                <label htmlFor="zone">{t("intake.partOfTown")}</label>
                 <select
                   id="zone"
                   value={draft.zone}
@@ -397,7 +391,7 @@ function IntakeForm() {
                 </select>
               </div>
               <div className="field">
-                <label htmlFor="valuation">Rough cost of the work (USD)</label>
+                <label htmlFor="valuation">{t("intake.roughCost")}</label>
                 <input
                   id="valuation"
                   type="number"
@@ -413,10 +407,10 @@ function IntakeForm() {
                   checked={Boolean(draft.changingSpace)}
                   onChange={(event) => setDraft({ ...draft, changingSpace: event.target.checked })}
                 />
-                We are remodeling or adding space
+                {t("intake.remodeling")}
               </label>
               <fieldset className="mt-4">
-                <legend className="font-semibold">What work is involved?</legend>
+                <legend className="font-semibold">{t("intake.whatWork")}</legend>
                 {(Object.keys(TRADE_LABELS) as Trade[]).map((trade) => (
                   <label key={trade} className="field-check">
                     <input
@@ -432,12 +426,10 @@ function IntakeForm() {
           ) : null}
           {step === 3 ? (
             <>
-              <h1 className="font-serif text-3xl text-[var(--navy)]">What should we call it?</h1>
-              <p className="mt-2 text-[var(--muted)]">
-                Use your business, event, or project name. We’ll build the roadmap from the answers you already gave.
-              </p>
+              <h1 className="font-serif text-3xl text-[var(--navy)]">{t("intake.step3Title")}</h1>
+              <p className="mt-2 text-[var(--muted)]">{t("intake.step3Body")}</p>
               <div className="field">
-                <label htmlFor="name">Project name</label>
+                <label htmlFor="name">{t("intake.projectName")}</label>
                 <input
                   id="name"
                   maxLength={120}
@@ -447,7 +439,7 @@ function IntakeForm() {
                 />
               </div>
               <div className="field">
-                <label htmlFor="start">Desired start date (optional)</label>
+                <label htmlFor="start">{t("intake.startDate")}</label>
                 <input
                   id="start"
                   type="date"
@@ -462,7 +454,7 @@ function IntakeForm() {
                     checked={draft.homeBased}
                     onChange={(event) => setDraft({ ...draft, homeBased: event.target.checked })}
                   />
-                  This activity will be home-based
+                  {t("intake.homeBased")}
                 </label>
               ) : null}
               {draft.projectType === "public_event" ? (
@@ -473,7 +465,7 @@ function IntakeForm() {
                       checked={draft.foodPreparation}
                       onChange={(event) => setDraft({ ...draft, foodPreparation: event.target.checked })}
                     />
-                    Food will be prepared or served
+                    {t("intake.foodServed")}
                   </label>
                   <label className="field-check">
                     <input
@@ -481,10 +473,10 @@ function IntakeForm() {
                       checked={draft.publicAttendance}
                       onChange={(event) => setDraft({ ...draft, publicAttendance: event.target.checked })}
                     />
-                    The public will attend
+                    {t("intake.publicAttend")}
                   </label>
                   <div className="field">
-                    <label htmlFor="visitors">Expected attendance</label>
+                    <label htmlFor="visitors">{t("intake.attendance")}</label>
                     <input
                       id="visitors"
                       type="number"
@@ -496,10 +488,9 @@ function IntakeForm() {
                 </>
               ) : null}
               <div className="mt-4 rounded-lg border border-[var(--line)] bg-[var(--paper)] p-3">
-                <strong>Before we build your checklist</strong>
+                <strong>{t("intake.beforeTitle")}</strong>
                 <p className="mt-1 text-sm text-[var(--muted)]">
-                  Permit steps come from a fixed rulebook for your answers. Citations may be matched from
-                  downloaded {draft.state || "NH"} source files. This is a planning guide, not a legal determination.
+                  {t("intake.beforeBody", { state: draft.state || "NH" })}
                 </p>
               </div>
             </>
@@ -510,10 +501,10 @@ function IntakeForm() {
               type="button"
               onClick={() => (step > 1 ? setStep((value) => value - 1) : router.push("/"))}
             >
-              <ArrowLeft size={17} aria-hidden /> Back
+              <ArrowLeft size={17} aria-hidden /> {t("intake.back")}
             </button>
             <button className="button primary" type="button" onClick={next}>
-              {step === 3 ? "Build my checklist" : "Continue"}
+              {step === 3 ? t("intake.build") : t("intake.continue")}
               <ArrowRight size={17} aria-hidden />
             </button>
           </div>

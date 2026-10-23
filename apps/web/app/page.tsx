@@ -33,98 +33,76 @@ import {
   signUpWithEmail,
   useAuth,
 } from "@/lib/supabase";
+import { useA11y } from "@/lib/a11y";
 import type { Project } from "@/lib/types";
 
 const PLATFORM_GUIDE = [
   {
     step: "1",
-    badge: "Quick 3-Question Setup",
-    title: "Tell us what you are building or opening",
     href: "/intake",
-    cta: "Try the 3-step form",
     icon: Landmark,
-    whatItDoes:
-      "Answer 3 simple questions about your project—like opening a home bakery, remodeling a shop, adding a room, or hosting a neighborhood event.",
-    whatYouGet: [
-      "Pick a ready-made example (Home Bakery, Corner Cafe, or Block Party) if you don't want to type.",
-      "Instantly builds a custom checklist of every city permit you need.",
-    ],
+    badge: "home.g1badge",
+    title: "home.g1title",
+    cta: "home.g1cta",
+    does: "home.g1does",
+    gets: ["home.g1get1", "home.g1get2"],
   },
   {
     step: "2",
-    badge: "Visual Map",
-    title: "See which permits come first (and what is holding you up)",
     href: "/demo?tab=graph",
-    cta: "See the visual map",
     icon: Share2,
-    whatItDoes:
-      "Shows your permits as a step-by-step map so you never apply for the wrong permit first or get stuck waiting in the wrong line.",
-    whatYouGet: [
-      "Highlights any step that is slowing down your project in gold.",
-      "Click any step to see a plain-English explanation of why the town requires it.",
-      "Includes a ready-to-copy follow-up email you can send to the city department.",
-    ],
+    badge: "home.g2badge",
+    title: "home.g2title",
+    cta: "home.g2cta",
+    does: "home.g2does",
+    gets: ["home.g2get1", "home.g2get2", "home.g2get3"],
   },
   {
     step: "3",
-    badge: "Schedule & Dates",
-    title: "Track your progress and estimated dates",
     href: "/demo?tab=timeline",
-    cta: "View sample schedule",
     icon: GitCommitHorizontal,
-    whatItDoes:
-      "Gives you a realistic time range for each department review and updates your next recommended step as approvals come in.",
-    whatYouGet: [
-      "Mark steps as Not Started, Submitted, In Review, or Approved.",
-      "See which permits you can work on at the same time to save weeks.",
-    ],
+    badge: "home.g3badge",
+    title: "home.g3title",
+    cta: "home.g3cta",
+    does: "home.g3does",
+    gets: ["home.g3get1", "home.g3get2"],
   },
   {
     step: "4",
-    badge: "Paperwork Checklist",
-    title: "Keep all required documents in one place",
     href: "/demo?tab=documents",
-    cta: "Open document checklist",
     icon: FileStack,
-    whatItDoes:
-      "Lists the exact files each department asks for—like a floor plan, menu, or food safety certificate—before you submit.",
-    whatYouGet: [
-      "Upload your own PDFs or photos, or click 'Attach sample PDF' to test how it works.",
-      "Checks off each requirement as you go so nothing is missing.",
-    ],
+    badge: "home.g4badge",
+    title: "home.g4title",
+    cta: "home.g4cta",
+    does: "home.g4does",
+    gets: ["home.g4get1", "home.g4get2"],
   },
   {
     step: "5",
-    badge: "No Surprise Costs",
-    title: "See what your permits will cost upfront",
     href: "/demo?tab=fees",
-    cta: "See fee breakdown",
     icon: Receipt,
-    whatItDoes:
-      "Adds up the town’s permit fees based on your project size and work type so you can budget before spending money.",
-    whatYouGet: [
-      "Shows every fee line-by-line in plain numbers—no hidden math.",
-    ],
+    badge: "home.g5badge",
+    title: "home.g5title",
+    cta: "home.g5cta",
+    does: "home.g5does",
+    gets: ["home.g5get1"],
   },
   {
     step: "6",
-    badge: "Inspection Prep",
-    title: "Pass your city inspections the first time",
     href: "/demo?tab=inspections",
-    cta: "View inspection prep",
     icon: ClipboardCheck,
-    whatItDoes:
-      "Gives you a simple pre-inspection checklist for Building, Fire, and Health before the inspector visits your site.",
-    whatYouGet: [
-      "Check off items as you prepare your space.",
-      "Switch between English and Español, Plain English, or High-Contrast mode anytime at the top of the page.",
-    ],
+    badge: "home.g6badge",
+    title: "home.g6title",
+    cta: "home.g6cta",
+    does: "home.g6does",
+    gets: ["home.g6get1", "home.g6get2"],
   },
 ];
 
 export default function HomePage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useA11y();
   const [savedProjects, setSavedProjects] = useState<Project[]>([]);
   const [authTab, setAuthTab] = useState<"mock" | "signin" | "signup">("mock");
   const [name, setName] = useState("");
@@ -188,35 +166,32 @@ export default function HomePage() {
         <section className="border-b border-[var(--line)] bg-[var(--card)]">
           <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-start lg:py-14">
             <div>
-              <p className="eyebrow">Permit Guide for Residents &amp; Small Businesses</p>
+              <p className="eyebrow">{t("home.eyebrow")}</p>
               <h1 className="mt-2 font-serif text-4xl leading-tight text-[var(--navy)] sm:text-5xl">
-                Know every permit, fee, and step before you apply.
+                {t("home.title")}
               </h1>
-              <p className="mt-4 max-w-2xl text-lg text-[var(--muted)]">
-                Starting a home food business, renovating a shop, or planning a community event?{" "}
-                <strong>PermitPilot</strong> turns confusing city rules into a simple, step-by-step checklist—showing you what to file first, what it costs, and how long it takes.
-              </p>
+              <p className="mt-4 max-w-2xl text-lg text-[var(--muted)]">{t("home.lede")}</p>
 
               <div className="mt-6">
                 <Link className="button secondary" href="/intake">
-                  Start Your Own Project
+                  {t("home.startOwn")}
                   <ArrowRight size={16} aria-hidden />
                 </Link>
               </div>
             </div>
 
             {/* Right Column: Friendly Sample Account & Sign-In Box */}
-            <aside className="panel" aria-label="Account and Sample Access">
+            <aside className="panel" aria-label={t("home.accountLabel")}>
               {user ? (
                 <div>
                   <div className="flex items-start justify-between gap-2 border-b border-[var(--line)] pb-3">
                     <div>
-                      <p className="eyebrow">You Are Signed In</p>
+                      <p className="eyebrow">{t("home.signedIn")}</p>
                       <h2 className="mt-0.5 font-serif text-2xl text-[var(--navy)]">
-                        {user.isDemoJudge ? "Sample Explorer Account" : user.name}
+                        {user.isDemoJudge ? t("home.sampleAccount") : user.name}
                       </h2>
                     </div>
-                    <span className="status-pill status-approved">Active</span>
+                    <span className="status-pill status-approved">{t("home.active")}</span>
                   </div>
 
                   {savedProjects.length > 0 ? (
@@ -233,9 +208,7 @@ export default function HomePage() {
                       ))}
                     </ul>
                   ) : (
-                    <p className="mt-3 text-sm text-[var(--muted)]">
-                      No projects yet. Answer a few questions and we’ll build your permit roadmap.
-                    </p>
+                    <p className="mt-3 text-sm text-[var(--muted)]">{t("home.noProjects")}</p>
                   )}
 
                   <div className="mt-4">
@@ -243,14 +216,14 @@ export default function HomePage() {
                       href={savedProjects.length === 0 ? "/intake?welcome=1" : "/intake"}
                       className="button secondary w-full text-sm"
                     >
-                      {savedProjects.length === 0 ? "Set up my project" : "+ Start a New Project"}
+                      {savedProjects.length === 0 ? t("home.setupProject") : t("home.newProject")}
                     </Link>
                   </div>
 
                   <div className="mt-4 flex items-center justify-between border-t border-[var(--line)] pt-3 text-xs text-[var(--muted)]">
                     <span className="inline-flex items-center gap-1.5">
                       <CheckCircle2 size={14} className="text-[var(--ok)]" aria-hidden />
-                      Progress saves automatically
+                      {t("home.saves")}
                     </span>
                     <button
                       type="button"
@@ -258,7 +231,7 @@ export default function HomePage() {
                       className="inline-flex items-center gap-1 font-semibold text-[var(--danger)] hover:underline cursor-pointer"
                     >
                       <LogOut size={13} aria-hidden />
-                      Sign out
+                      {t("home.signOut")}
                     </button>
                   </div>
                 </div>
@@ -266,9 +239,9 @@ export default function HomePage() {
                 <div>
                   <div className="flex items-center justify-between gap-2 border-b border-[var(--line)] pb-3">
                     <div>
-                      <p className="eyebrow">Get Started</p>
+                      <p className="eyebrow">{t("home.getStarted")}</p>
                       <h2 className="mt-0.5 font-serif text-2xl text-[var(--navy)]">
-                        Try a sample, or create an account
+                        {t("home.trySample")}
                       </h2>
                     </div>
                     <KeyRound size={20} className="text-[var(--navy)]" aria-hidden />
@@ -289,7 +262,7 @@ export default function HomePage() {
                       }`}
                     >
                       <Sparkles size={13} aria-hidden />
-                      Sample
+                      {t("home.tabSample")}
                     </button>
                     <button
                       type="button"
@@ -303,7 +276,7 @@ export default function HomePage() {
                         authTab === "signin" ? "is-active" : ""
                       }`}
                     >
-                      Sign in
+                      {t("home.tabSignIn")}
                     </button>
                     <button
                       type="button"
@@ -317,25 +290,17 @@ export default function HomePage() {
                         authTab === "signup" ? "is-active" : ""
                       }`}
                     >
-                      Create account
+                      {t("home.tabSignUp")}
                     </button>
                   </div>
 
                   {authTab === "mock" ? (
                     <div className="mt-4 space-y-3">
-                      <p className="text-sm text-[var(--ink)]">
-                        No email needed. This opens three example projects so you can click around:
-                      </p>
+                      <p className="text-sm text-[var(--ink)]">{t("home.sampleBlurb")}</p>
                       <ul className="list-disc space-y-1 pl-5 text-sm text-[var(--muted)]">
-                        <li>
-                          <strong className="text-[var(--ink)]">Harbor Kitchen</strong> — a home bakery
-                        </li>
-                        <li>
-                          <strong className="text-[var(--ink)]">Beacon Corner Cafe</strong> — a shop remodel
-                        </li>
-                        <li>
-                          <strong className="text-[var(--ink)]">Wharf Street Block Party</strong> — an outdoor event
-                        </li>
+                        <li>{t("home.sampleHarbor")}</li>
+                        <li>{t("home.sampleCafe")}</li>
+                        <li>{t("home.sampleParty")}</li>
                       </ul>
                       <button
                         type="button"
@@ -344,22 +309,20 @@ export default function HomePage() {
                         className="button primary w-full cursor-pointer"
                       >
                         <Compass size={16} aria-hidden />
-                        Open sample projects
+                        {t("home.openSamples")}
                       </button>
                     </div>
                   ) : (
                     <form className="mt-3 space-y-3" onSubmit={handleEmailAuth}>
                       <p className="text-sm text-[var(--muted)]">
-                        {authTab === "signup"
-                          ? "After you create an account, we’ll ask a few questions and build a permit checklist for your project."
-                          : "If you don’t have a project yet, we’ll ask a few questions first so the roadmap matches what you’re building."}
+                        {authTab === "signup" ? t("home.signupBlurb") : t("home.signinBlurb")}
                       </p>
                       {authTab === "signup" ? (
                         <label className="field !mt-2">
-                          <span className="text-xs font-semibold">Your name</span>
+                          <span className="text-xs font-semibold">{t("home.yourName")}</span>
                           <input
                             type="text"
-                            placeholder="e.g., Maya Lin"
+                            placeholder={t("home.namePlaceholder")}
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             required
@@ -367,20 +330,20 @@ export default function HomePage() {
                         </label>
                       ) : null}
                       <label className="field !mt-2">
-                        <span className="text-xs font-semibold">Email address</span>
+                        <span className="text-xs font-semibold">{t("home.email")}</span>
                         <input
                           type="email"
-                          placeholder="you@example.com"
+                          placeholder={t("home.emailPlaceholder")}
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           required
                         />
                       </label>
                       <label className="field !mt-2">
-                        <span className="text-xs font-semibold">Password</span>
+                        <span className="text-xs font-semibold">{t("home.password")}</span>
                         <input
                           type="password"
-                          placeholder="At least 6 characters"
+                          placeholder={t("home.passwordPlaceholder")}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           required
@@ -396,7 +359,7 @@ export default function HomePage() {
                         disabled={busy}
                         className="button primary w-full cursor-pointer"
                       >
-                        {authTab === "signin" ? "Sign in" : "Create my account"}
+                        {authTab === "signin" ? t("home.tabSignIn") : t("home.createAccount")}
                       </button>
                     </form>
                   )}
@@ -410,13 +373,11 @@ export default function HomePage() {
         <section className="mx-auto max-w-6xl px-4 py-12" aria-labelledby="everything-heading">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="eyebrow">How PermitPilot Helps You</p>
+              <p className="eyebrow">{t("home.howHelps")}</p>
               <h2 id="everything-heading" className="mt-1 font-serif text-3xl text-[var(--navy)]">
-                Everything you can do on this website
+                {t("home.everything")}
               </h2>
-              <p className="mt-2 max-w-3xl text-[var(--muted)]">
-                You don’t need to be a contractor or lawyer to figure out city permits. Here are the 6 tools included for every project:
-              </p>
+              <p className="mt-2 max-w-3xl text-[var(--muted)]">{t("home.everythingBody")}</p>
             </div>
           </div>
 
@@ -429,30 +390,30 @@ export default function HomePage() {
                     <div className="flex items-center justify-between gap-2">
                       <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--seal)]">
                         <Icon size={18} aria-hidden />
-                        {item.step}. {item.badge}
+                        {item.step}. {t(item.badge)}
                       </span>
                       <Link
                         href={item.href}
                         className="text-xs font-bold text-[var(--navy)] underline"
                       >
-                        {item.cta} →
+                        {t(item.cta)} →
                       </Link>
                     </div>
 
                     <h3 className="mt-2 font-serif text-2xl text-[var(--navy)]">
-                      {item.title}
+                      {t(item.title)}
                     </h3>
-                    <p className="mt-2 text-sm text-[var(--ink)]">{item.whatItDoes}</p>
+                    <p className="mt-2 text-sm text-[var(--ink)]">{t(item.does)}</p>
 
                     <ul className="mt-3 space-y-1.5 border-t border-[var(--line)] pt-3 text-sm text-[var(--muted)]">
-                      {item.whatYouGet.map((point) => (
+                      {item.gets.map((point) => (
                         <li key={point} className="flex items-start gap-2">
                           <CheckCircle2
                             size={15}
                             className="mt-0.5 shrink-0 text-[var(--ok)]"
                             aria-hidden
                           />
-                          <span>{point}</span>
+                          <span>{t(point)}</span>
                         </li>
                       ))}
                     </ul>
@@ -470,17 +431,15 @@ export default function HomePage() {
               <div>
                 <p className="eyebrow inline-flex items-center gap-1.5">
                   <ShieldCheck size={15} aria-hidden />
-                  Clear &amp; Reliable Answers
+                  {t("home.trustEyebrow")}
                 </p>
                 <h2 className="mt-1 font-serif text-2xl text-[var(--navy)]">
-                  Real rulebook logic — never a chatbot guessing
+                  {t("home.trustTitle")}
                 </h2>
-                <p className="mt-2 max-w-3xl text-sm text-[var(--ink)]">
-                  Chatbots can make up city laws. PermitPilot uses a fixed checklist of town rules so you get the exact same permit steps, fee math, and rule links every time. (Note: Demo Harbor is a fictional sample town created for demonstration.)
-                </p>
+                <p className="mt-2 max-w-3xl text-sm text-[var(--ink)]">{t("home.trustBody")}</p>
               </div>
               <Link href="/about" className="button secondary shrink-0">
-                How It Works
+                {t("home.howItWorks")}
               </Link>
             </div>
           </div>

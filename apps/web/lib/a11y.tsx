@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { translate, type Locale } from "@/lib/i18n";
+import { isLocale, LOCALE_META, translate, type Locale } from "@/lib/i18n";
 
 export interface A11yState {
   highContrast: boolean;
@@ -16,10 +16,6 @@ export interface A11yState {
 const A11yContext = createContext<A11yState | null>(null);
 // remember contrast / plain english / language
 const STORAGE_KEY = "permitpilot:a11y";
-
-function isLocale(value: unknown): value is Locale {
-  return value === "en" || value === "es";
-}
 
 export function A11yProvider({ children }: { children: React.ReactNode }) {
   const [highContrast, setHighContrast] = useState(false);
@@ -51,6 +47,7 @@ export function A11yProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.classList.toggle("high-contrast", highContrast);
     document.documentElement.dataset.plain = plainLanguage ? "true" : "false";
     document.documentElement.lang = locale;
+    document.documentElement.dir = LOCALE_META[locale].dir;
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ highContrast, plainLanguage, locale }));
   }, [highContrast, plainLanguage, locale, hydrated]);
 

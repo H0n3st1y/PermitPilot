@@ -82,7 +82,7 @@ export function AppShell({
               type="button"
               onClick={handleGuideClick}
               className="a11y-toggle whitespace-nowrap cursor-pointer"
-              aria-label="Start interactive guide"
+              aria-label={t("nav.guide")}
             >
               <Compass size={15} aria-hidden />
               {t("nav.guide")}

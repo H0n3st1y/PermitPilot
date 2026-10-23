@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Compass, KeyRound, Sparkles, UserCheck } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
+import { useA11y } from "@/lib/a11y";
 import { seedMockAccountWorkspace, workspaceAfterAuth } from "@/lib/store";
 import {
   signInAsDemoJudge,
@@ -13,6 +14,7 @@ import {
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useA11y();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -54,19 +56,17 @@ export default function LoginPage() {
   }
 
   return (
-    <AppShell eyebrow="Sign In or Try a Sample Account">
+    <AppShell eyebrow={t("login.eyebrow")}>
       <main id="main" className="mx-auto max-w-xl px-4 py-10">
         {/* Simple, Jargon-Free Sample Account Box */}
         <section className="panel panel-warn mb-6">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="eyebrow">Just Looking Around?</p>
+              <p className="eyebrow">{t("login.lookingAround")}</p>
               <h1 className="mt-1 font-serif text-2xl text-[var(--navy)]">
-                Try our Sample Account (No Sign-Up Needed)
+                {t("login.sampleTitle")}
               </h1>
-              <p className="mt-2 text-sm text-[var(--ink)]">
-                Want to see how PermitPilot works without creating an account? Click below to open a ready-made account with <strong>3 example projects</strong> (a Home Bakery, a Corner Cafe, and a Neighborhood Block Party).
-              </p>
+              <p className="mt-2 text-sm text-[var(--ink)]">{t("login.sampleBody")}</p>
             </div>
             <Sparkles className="shrink-0 text-[var(--seal)]" size={22} aria-hidden />
           </div>
@@ -78,7 +78,7 @@ export default function LoginPage() {
               onClick={() => void handleSampleAccount("tour")}
             >
               <Compass size={16} aria-hidden />
-              Open Sample Account + Guided Tour
+              {t("login.openTour")}
             </button>
             <button
               type="button"
@@ -87,7 +87,7 @@ export default function LoginPage() {
               onClick={() => void handleSampleAccount("home")}
             >
               <UserCheck size={16} aria-hidden />
-              See All 3 Sample Projects
+              {t("login.seeProjects")}
             </button>
           </div>
         </section>
@@ -96,20 +96,18 @@ export default function LoginPage() {
         <section className="panel">
           <div className="flex items-center justify-between gap-2 border-b border-[var(--line)] pb-4">
             <div>
-              <p className="eyebrow">Your Account</p>
+              <p className="eyebrow">{t("login.yourAccount")}</p>
               <h2 className="mt-1 font-serif text-2xl text-[var(--navy)]">
-                {mode === "login" ? "Sign in to save your projects" : "Create a free account"}
+                {mode === "login" ? t("login.signInTitle") : t("login.signUpTitle")}
               </h2>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                {mode === "login"
-                  ? "If this is your first time, we’ll ask a few questions and build a checklist for your project."
-                  : "Next we’ll ask a few questions about what you’re opening or building, then create your permit roadmap."}
+                {mode === "login" ? t("login.signInBody") : t("login.signUpBody")}
               </p>
             </div>
             <KeyRound className="text-[var(--navy)]" size={20} aria-hidden />
           </div>
 
-          <div className="mt-4 flex gap-2" role="tablist" aria-label="Sign in or create account">
+          <div className="mt-4 flex gap-2" role="tablist" aria-label={t("login.yourAccount")}>
             <button
               type="button"
               role="tab"
@@ -120,7 +118,7 @@ export default function LoginPage() {
                 setError("");
               }}
             >
-              Sign in
+              {t("home.tabSignIn")}
             </button>
             <button
               type="button"
@@ -132,18 +130,18 @@ export default function LoginPage() {
                 setError("");
               }}
             >
-              Create account
+              {t("home.tabSignUp")}
             </button>
           </div>
 
           <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
             {mode === "signup" ? (
               <label className="field">
-                <span className="field-label">Your name</span>
+                <span className="field-label">{t("home.yourName")}</span>
                 <input
                   type="text"
                   className="field-input"
-                  placeholder="e.g., Maya Lin"
+                  placeholder={t("home.namePlaceholder")}
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   required
@@ -152,11 +150,11 @@ export default function LoginPage() {
             ) : null}
 
             <label className="field">
-              <span className="field-label">Email address</span>
+              <span className="field-label">{t("home.email")}</span>
               <input
                 type="email"
                 className="field-input"
-                placeholder="you@example.com"
+                placeholder={t("home.emailPlaceholder")}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 required
@@ -164,11 +162,11 @@ export default function LoginPage() {
             </label>
 
             <label className="field">
-              <span className="field-label">Password</span>
+              <span className="field-label">{t("home.password")}</span>
               <input
                 type="password"
                 className="field-input"
-                placeholder="At least 6 characters"
+                placeholder={t("home.passwordPlaceholder")}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
@@ -183,7 +181,7 @@ export default function LoginPage() {
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
               <button type="submit" className="button primary cursor-pointer" disabled={submitting}>
-                {mode === "login" ? "Sign in" : "Create my account"}
+                {mode === "login" ? t("home.tabSignIn") : t("home.createAccount")}
               </button>
               <button
                 type="button"
@@ -191,14 +189,14 @@ export default function LoginPage() {
                 disabled={submitting}
                 onClick={() => void handleSampleAccount("tour")}
               >
-                Skip &amp; use Sample Account
+                {t("login.skipSample")}
               </button>
             </div>
           </form>
 
           <p className="mt-5 flex items-center gap-1.5 border-t border-[var(--line)] pt-3 text-xs text-[var(--muted)]">
             <CheckCircle2 size={14} className="text-[var(--ok)]" aria-hidden />
-            Your permit checklists, uploaded documents, and progress are saved automatically.
+            {t("login.savedNote")}
           </p>
         </section>
       </main>

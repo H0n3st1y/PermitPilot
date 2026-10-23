@@ -12,6 +12,15 @@ describe("translate", () => {
     expect(translate("es", "graph.ethics")).toContain("permiso");
   });
 
+  it("covers the 8 language catalogs", () => {
+    expect(translate("pt", "home.title")).toContain("licença");
+    expect(translate("fr", "nav.signIn")).toBe("Connexion");
+    expect(translate("zh", "dashboard.tabs.graph")).toBe("关系图");
+    expect(translate("hi", "a11y.language")).toBe("भाषा");
+    expect(translate("bn", "nav.newProject")).toBe("নতুন প্রকল্প");
+    expect(translate("ar", "nav.signIn")).toBe("تسجيل الدخول");
+  });
+
   it("falls back to English when a key is missing", () => {
     expect(translate("es", "does.not.exist")).toBe("does.not.exist");
   });

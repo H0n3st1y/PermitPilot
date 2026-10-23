@@ -1,0 +1,9 @@
+{
+  "id": "demo-harbor-ma",
+  "name": "Demo Harbor",
+  "state": "MA",
+  "website": null,
+  "demo": true,
+  "notice": "This roadmap uses demonstration data and is not an official determination. Confirm all requirements, fees, dates, and approvals with your municipality.",
+  "departments": ["Zoning", "Building", "Public Health", "Fire Prevention", "City Clerk", "Public Works"]
+}

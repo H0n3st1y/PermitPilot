@@ -1,0 +1,7 @@
+Source: https://www.nh.gov/safety/divisions/firesafety/
+State: NH
+Status: demo excerpt for PermitPilot planning only. Confirm with the NH Division of Fire Safety and the local fire official.
+
+Places of assembly, restaurants, and many businesses that admit the public are reviewed for exits, occupant load, and fire-protection equipment. A change of use or interior remodel can trigger fire review even when the building already exists.
+
+Local fire officials typically inspect before occupancy. This excerpt is a demonstration pointer, not a substitute for the adopted fire code.

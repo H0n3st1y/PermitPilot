@@ -1,0 +1,101 @@
+{
+  "nav": {
+    "overview": "Resumen",
+    "timeline": "Cronograma",
+    "documents": "Documentos",
+    "sources": "Fuentes",
+    "newProject": "Nuevo proyecto",
+    "demo": "Demo",
+    "methodology": "Metodología",
+    "guide": "Guía",
+    "signIn": "Iniciar sesión",
+    "signOut": "Salir",
+    "skip": "Saltar al contenido"
+  },
+  "status": {
+    "not_started": "No iniciado",
+    "preparing": "Preparando",
+    "ready_to_submit": "Listo para enviar",
+    "submitted": "Enviado",
+    "in_review": "En revisión",
+    "changes_requested": "Cambios solicitados",
+    "inspection_scheduled": "Inspección programada",
+    "approved": "Aprobado",
+    "rejected": "Rechazado",
+    "not_applicable": "No aplica"
+  },
+  "common": {
+    "demoNotice": "Esta hoja de ruta utiliza datos de demostración y no es una determinación oficial. Confirme todos los requisitos, tarifas, fechas y aprobaciones con su municipio.",
+    "nextAction": "Siguiente acción recomendada",
+    "estimated": "Rango de planificación típico",
+    "source": "Fuente de demostración",
+    "loading": "Cargando su hoja de ruta…",
+    "notFound": "Proyecto no encontrado",
+    "notFoundBody": "Este proyecto de demostración se guarda en este navegador. Puede haberse borrado, o el enlace es de otro dispositivo.",
+    "startNew": "Empezar un proyecto nuevo",
+    "openDemo": "Abrir la demo",
+    "resetDemo": "Reiniciar demo",
+    "dbSaved": "Guardado en base de datos"
+  },
+  "a11y": {
+    "group": "Opciones de accesibilidad",
+    "highContrast": "Alto contraste",
+    "plainEnglish": "Lenguaje sencillo",
+    "spanish": "English",
+    "note": "Estos controles solo cambian la pantalla. No cambian su hoja de ruta de permisos."
+  },
+  "dashboard": {
+    "eyebrow": "Hoja de ruta de permisos",
+    "nextActionWork": "Trabaje en {title} ({department})",
+    "allApproved": "Todos los pasos de demostración están aprobados.",
+    "stepsApproved": "{approved} de {total} pasos aprobados",
+    "tabsLabel": "Secciones del proyecto",
+    "tabs": {
+      "overview": "Hoja de ruta",
+      "graph": "Gráfico",
+      "timeline": "Cronograma",
+      "documents": "Documentos",
+      "fees": "Tarifas",
+      "inspections": "Inspecciones"
+    }
+  },
+  "graph": {
+    "title": "Gráfico de permisos",
+    "subtitle": "Cada nodo es un paso departamental. Las flechas significan “no puede empezar hasta.” Los colores siguen el estado. El borde dorado es un cuello de botella. El anillo discontinuo es la ruta crítica.",
+    "why": "¿Por qué este paso?",
+    "ethics": "Una IA podría explicar más adelante un pasaje citado. No puede añadir un permiso.",
+    "rule": "Regla coincidente",
+    "fields": "Campos coincidentes",
+    "reason": "Por qué se activó",
+    "critical": "Ruta crítica",
+    "bottleneck": "Cuello de botella",
+    "selectHint": "Seleccione un paso para ver el rastreo de evaluación que lo incluyó.",
+    "noTrace": "No hay un rastreo de evaluación guardado para este paso.",
+    "stepList": "Pasos del permiso",
+    "close": "Cerrar detalles",
+    "citations": "Citas del código",
+    "status": "Estado",
+    "markApprovedQuick": "Marcar Aprobado → desbloquear siguiente paso",
+    "handoffNow": "La siguiente acción ahora es {title} ({department}).",
+    "followUpTitle": "Borrador de seguimiento al departamento",
+    "followUpNote": "Plantilla determinista del rastreo de reglas — edítela antes de enviar; no es un documento oficial.",
+    "copyDraft": "Copiar borrador",
+    "copied": "¡Copiado!"
+  },
+  "tour": {
+    "back": "Atrás",
+    "next": "Siguiente",
+    "skip": "Saltar guía",
+    "finish": "Listo",
+    "step1Title": "1. Identifique el cuello de botella",
+    "step1Body": "Harbor Kitchen está detenido: el permiso de Salud lleva 12 días en revisión (borde dorado), bloqueando Bomberos y la Licencia comercial.",
+    "step1Cta": "Pulse el nodo dorado de Salud",
+    "step2Title": "2. Rastreo determinista de reglas",
+    "step2Body": "Cada permiso proviene de una regla versionada, campos coincidentes y citas del código — nunca de un modelo de lenguaje adivinando la ley.",
+    "step3Title": "3. Apruebe y vea el relevo",
+    "step3Body": "Pulse “Marcar Aprobado” para despejar el cuello de botella y pasar la siguiente acción a Bomberos.",
+    "step3Cta": "Pulse Marcar Aprobado para probar el cambio",
+    "step4Title": "4. Tarifas, Documentos e Inspecciones",
+    "step4Body": "Cambie de pestaña para ver recargos detallados, carga de PDF de muestra en un clic y listas de inspección."
+  }
+}

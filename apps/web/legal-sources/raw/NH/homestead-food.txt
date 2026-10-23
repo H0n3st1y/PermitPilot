@@ -1,0 +1,11 @@
+Source: https://www.dhhs.nh.gov/programs-services/environmental-health-and-food-protection/food-protection
+State: NH
+Status: demo excerpt for PermitPilot planning only. Confirm with NH DHHS.
+
+New Hampshire distinguishes homestead food operations (often called cottage food) from full food-service establishments.
+
+Homestead producers typically make non-potentially hazardous baked goods and similar foods in a home kitchen. There are limits on what may be sold, how it may be labeled, and whether sales may occur only from the home or also at fairs and farm stands.
+
+Foods that need refrigeration, meat, or full meals generally fall outside homestead exemption and need a food-service license instead.
+
+This excerpt is a demonstration pointer, not a complete copy of RSA 143-A or current DHHS rules.

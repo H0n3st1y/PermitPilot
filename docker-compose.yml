@@ -1,0 +1,12 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: permitpilot
+      POSTGRES_USER: permitpilot
+      POSTGRES_PASSWORD: permitpilot
+    ports: ["5432:5432"]
+    volumes: [permitpilot_data:/var/lib/postgresql/data]
+volumes:
+  permitpilot_data:
+

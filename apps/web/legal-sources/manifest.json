@@ -1,0 +1,37 @@
+{
+  "reviewNote": "Downloaded copies are demonstration source text. They are not an official determination. Only reviewed excerpts are sent to the citation API.",
+  "sources": [
+    {
+      "id": "nh-food-protection",
+      "state": "NH",
+      "title": "NH DHHS Food Protection",
+      "url": "https://www.dhhs.nh.gov/programs-services/environmental-health-and-food-protection/food-protection",
+      "file": "raw/NH/food-protection.txt",
+      "status": "demo"
+    },
+    {
+      "id": "nh-homestead-food",
+      "state": "NH",
+      "title": "NH homestead / cottage food (DHHS)",
+      "url": "https://www.dhhs.nh.gov/programs-services/environmental-health-and-food-protection/food-protection",
+      "file": "raw/NH/homestead-food.txt",
+      "status": "demo"
+    },
+    {
+      "id": "nh-barber-cosmetology",
+      "state": "NH",
+      "title": "NH Board of Barbering, Cosmetology, and Esthetics",
+      "url": "https://www.oplc.nh.gov/barbering-cosmetology-and-esthetician-licensing",
+      "file": "raw/NH/barber-cosmetology.txt",
+      "status": "demo"
+    },
+    {
+      "id": "nh-fire-safety",
+      "state": "NH",
+      "title": "NH Division of Fire Safety",
+      "url": "https://www.nh.gov/safety/divisions/firesafety/",
+      "file": "raw/NH/fire-safety.txt",
+      "status": "demo"
+    }
+  ]
+}

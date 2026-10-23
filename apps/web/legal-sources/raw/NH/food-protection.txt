@@ -1,0 +1,9 @@
+Source: https://www.dhhs.nh.gov/programs-services/environmental-health-and-food-protection/food-protection
+State: NH
+Status: demo excerpt for PermitPilot planning only. Confirm with NH DHHS.
+
+New Hampshire Department of Health and Human Services, Food Protection, licenses and inspects food service establishments, including restaurants, retail food stores that prepare food, and similar operations.
+
+A food service license is generally required before serving meals to the public. Plan review may be required before opening or remodeling a kitchen. Handwashing sinks, refrigeration, and an approved water supply are typical inspection items.
+
+This excerpt is a demonstration pointer to published NH food-protection practice, not a municipal permit decision.

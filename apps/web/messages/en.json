@@ -1,0 +1,101 @@
+{
+  "nav": {
+    "overview": "Overview",
+    "timeline": "Timeline",
+    "documents": "Documents",
+    "sources": "Sources",
+    "newProject": "New project",
+    "demo": "Demo",
+    "methodology": "Methodology",
+    "guide": "Guide",
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "skip": "Skip to content"
+  },
+  "status": {
+    "not_started": "Not started",
+    "preparing": "Preparing",
+    "ready_to_submit": "Ready to submit",
+    "submitted": "Submitted",
+    "in_review": "In review",
+    "changes_requested": "Changes requested",
+    "inspection_scheduled": "Inspection scheduled",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "not_applicable": "Not applicable"
+  },
+  "common": {
+    "demoNotice": "This roadmap uses demonstration data and is not an official determination. Confirm all requirements, fees, dates, and approvals with your municipality.",
+    "nextAction": "Next recommended action",
+    "estimated": "Typical planning range",
+    "source": "Demonstration source",
+    "loading": "Loading your roadmap…",
+    "notFound": "Project not found",
+    "notFoundBody": "This demonstration project is stored in this browser. It may have been cleared, or the link is from another device.",
+    "startNew": "Start a new project",
+    "openDemo": "Open the demo",
+    "resetDemo": "Reset demo",
+    "dbSaved": "Saved to database"
+  },
+  "a11y": {
+    "group": "Accessibility options",
+    "highContrast": "High contrast",
+    "plainEnglish": "Plain English",
+    "spanish": "Español",
+    "note": "These controls change display only. They do not change your permit roadmap."
+  },
+  "dashboard": {
+    "eyebrow": "Permit roadmap",
+    "nextActionWork": "Work on {title} ({department})",
+    "allApproved": "All demonstration steps are approved.",
+    "stepsApproved": "{approved} of {total} steps approved",
+    "tabsLabel": "Project sections",
+    "tabs": {
+      "overview": "Roadmap",
+      "graph": "Graph",
+      "timeline": "Timeline",
+      "documents": "Documents",
+      "fees": "Fees",
+      "inspections": "Inspections"
+    }
+  },
+  "graph": {
+    "title": "Permit graph",
+    "subtitle": "Each node is a department step. Arrows mean “cannot start until.” Colors follow status. A gold outline is a bottleneck. A dashed ring is the critical path.",
+    "why": "Why this step?",
+    "ethics": "AI may later explain a cited passage. It cannot add a permit.",
+    "rule": "Matched rule",
+    "fields": "Matched fields",
+    "reason": "Why it fired",
+    "critical": "Critical path",
+    "bottleneck": "Bottleneck",
+    "selectHint": "Select a step to see the evaluation trace that included it.",
+    "noTrace": "No evaluation trace is stored for this step.",
+    "stepList": "Permit steps",
+    "close": "Close details",
+    "citations": "Code citations",
+    "status": "Status",
+    "markApprovedQuick": "Mark Approved → unlock next step",
+    "handoffNow": "Next action is now {title} ({department}).",
+    "followUpTitle": "Department follow-up draft",
+    "followUpNote": "Deterministic template from rule trace — edit before sending; not an official filing.",
+    "copyDraft": "Copy draft",
+    "copied": "Copied!"
+  },
+  "tour": {
+    "back": "Back",
+    "next": "Next",
+    "skip": "Skip guide",
+    "finish": "Done",
+    "step1Title": "1. Spot the bottleneck",
+    "step1Body": "Harbor Kitchen is stuck: the Health permit has been In Review for 12 days (gold outline), holding up Fire and the Business license.",
+    "step1Cta": "Click the gold Health permit node",
+    "step2Title": "2. Deterministic rule trace",
+    "step2Body": "Every permit comes from a versioned rule, matched intake fields, and model-code citations — never a language model guessing the law.",
+    "step3Title": "3. Approve & watch the handoff",
+    "step3Body": "Click “Mark Approved → unlock next step” (or change the status dropdown) to clear the bottleneck, generate a department follow-up, and hand the next action to Fire.",
+    "step3Cta": "Click Mark Approved to test the ripple",
+    "step4Title": "4. Fees, Vault & Inspections",
+    "step4Body": "Switch tabs to inspect itemized surcharges, one-click sample PDF uploads, and inspection pass criteria — all saved to your database workspace."
+  }
+}

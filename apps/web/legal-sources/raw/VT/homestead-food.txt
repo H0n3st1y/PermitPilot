@@ -1,0 +1,7 @@
+Source: https://www.healthvermont.gov/
+State: VT
+Status: demo excerpt for PermitPilot planning only. Confirm with the Vermont Department of Health.
+
+Vermont’s home-baked and homestead food exemptions differ from New Hampshire’s list of allowed foods, labeling, and where products may be sold. A home bakery that is exempt in one state may need a license in the other.
+
+This excerpt exists so switching the intake state from NH to VT can change the warning and citation overlay. It is not official Vermont law.

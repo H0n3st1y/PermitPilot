@@ -12,6 +12,7 @@ export default function DemoPage() {
   useEffect(() => {
     let active = true;
     async function launchDemo() {
+      // /demo just dumps you on harbor kitchen
       if (!getCurrentUser()) {
         await signInAsDemoJudge();
       }

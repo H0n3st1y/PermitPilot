@@ -11,6 +11,7 @@ export interface PermitPilotUser {
   mode: "supabase" | "local";
 }
 
+// localStorage keys so we remember who is signed in
 const SESSION_KEY = "permitpilot:auth:user";
 const ACCOUNTS_KEY = "permitpilot:auth:accounts";
 const AUTH_EVENT = "permitpilot:auth-changed";
@@ -22,9 +23,11 @@ const DEMO_JUDGE_ID = "00000000-0000-4000-8000-000000000001";
 let cachedClient: SupabaseClient | null | undefined;
 
 export function getSupabaseClient(): SupabaseClient | null {
+  // only build the client once
   if (cachedClient !== undefined) return cachedClient;
   const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  // no keys = just use local accounts
   if (!rawUrl || !anonKey || rawUrl.includes("your-project-ref") || anonKey.includes("paste-your")) {
     cachedClient = null;
     return null;
@@ -62,6 +65,7 @@ function mapSupabaseUser(user: User): PermitPilotUser {
   };
 }
 
+// whoever is in localStorage right now
 export function getCurrentUser(): PermitPilotUser | null {
   if (!canUseStorage()) return null;
   const raw = window.localStorage.getItem(SESSION_KEY);
@@ -106,6 +110,7 @@ function saveLocalAccounts(accounts: StoredLocalAccount[]): void {
   window.localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
 }
 
+// try cloud first then fall back to the browser list
 export async function signInWithEmail(
   email: string,
   password: string,
@@ -131,6 +136,7 @@ export async function signInWithEmail(
     }
   }
 
+  // local fallback if they dont have supabase set up
   const accounts = getLocalAccounts();
   const existing = accounts.find((acc) => acc.email === normalizedEmail);
   if (existing) {
@@ -202,6 +208,7 @@ export async function signUpWithEmail(
   return { user };
 }
 
+// judges can skip making a real account
 export async function signInAsDemoJudge(): Promise<PermitPilotUser> {
   const supabase = getSupabaseClient();
   if (supabase) {
@@ -228,6 +235,7 @@ export async function signInAsDemoJudge(): Promise<PermitPilotUser> {
 }
 
 export async function signOutPermitPilot(): Promise<void> {
+  // wipe both cloud and the local session
   const supabase = getSupabaseClient();
   if (supabase) {
     await supabase.auth.signOut().catch(() => undefined);
@@ -245,6 +253,7 @@ export function useAuth(): {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    // keep the header in sync if they sign in on another tab
     const sync = () => {
       setUser(getCurrentUser());
       setHydrated(true);

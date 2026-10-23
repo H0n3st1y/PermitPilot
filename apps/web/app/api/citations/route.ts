@@ -4,6 +4,7 @@ import type { ProjectConfig } from "@/lib/types";
 
 export const runtime = "nodejs";
 
+// what the graph sends us when they click explain or when it first loads
 interface MatchRequest {
   action?: "match" | "explain";
   config: ProjectConfig;
@@ -15,9 +16,11 @@ interface MatchRequest {
 const CLAUDE_MODELS = ["claude-sonnet-4-5", "claude-haiku-4-5"];
 
 function resolveWorkspaceId(): string | null {
+  // they have to paste a wrkspc_ id or claude gets mad
   return process.env.ANTHROPIC_WORKSPACE_ID?.trim() || null;
 }
 
+// backup text if claude is down
 function localExplanation(payload: MatchRequest, state: string): string {
   const quote = payload.citationQuote?.trim();
   const step = payload.stepTitle ?? "this permit step";
@@ -32,6 +35,7 @@ function localExplanation(payload: MatchRequest, state: string): string {
   ].join("\n\n");
 }
 
+// turn the ugly api error into something we can show
 function publicClaudeError(message: string): string {
   if (message === "NO_KEY") {
     return "No Anthropic API key is configured on the server.";
@@ -57,6 +61,7 @@ async function callClaude(prompt: string): Promise<string> {
     throw new Error("NO_KEY");
   }
 
+  // workspace header only if we actually have one
   const workspaceId = resolveWorkspaceId();
   const headers: Record<string, string> = {
     "content-type": "application/json",
@@ -68,6 +73,7 @@ async function callClaude(prompt: string): Promise<string> {
   }
 
   let lastError = "CLAUDE_UNKNOWN";
+  // try sonnet first then haiku if that one flops
   for (const model of CLAUDE_MODELS) {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -97,6 +103,7 @@ async function callClaude(prompt: string): Promise<string> {
   throw new Error(lastError);
 }
 
+// claude sometimes wraps json in extra words so just take the object part
 function parseJsonObject(text: string): Record<string, unknown> {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
@@ -126,6 +133,7 @@ export async function POST(request: Request) {
   const action = payload.action === "explain" ? "explain" : "match";
 
   try {
+    // they asked to explain one citation
     if (action === "explain") {
       const text = await callClaude(
         [
@@ -141,6 +149,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ explanation: text.trim(), modelUsed: true });
     }
 
+    // match quotes onto the steps we already picked. dont add new permits
     const text = await callClaude(
       [
         "You match published law excerpts to permit steps. You cannot add or remove permits.",
@@ -170,6 +179,7 @@ export async function POST(request: Request) {
       note: "Citations are matched from downloaded source files. They are not an official determination.",
     });
   } catch (error) {
+    // if claude fails we still show something so the button isnt empty
     const message = error instanceof Error ? error.message : "unknown";
     console.error("[citations]", message);
     const note =

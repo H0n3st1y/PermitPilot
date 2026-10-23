@@ -1,3 +1,4 @@
+// intake dropdown. we default to NH
 export const US_STATES: { code: string; name: string }[] = [
   { code: "AL", name: "Alabama" },
   { code: "AK", name: "Alaska" },

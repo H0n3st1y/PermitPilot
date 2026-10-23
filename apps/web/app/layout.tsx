@@ -4,6 +4,7 @@ import { A11yProvider } from "@/lib/a11y";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import "./globals.css";
 
+// civic paper fonts
 const sans = Source_Sans_3({
   subsets: ["latin"],
   weight: ["400", "600", "700"],

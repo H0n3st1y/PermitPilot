@@ -8,6 +8,7 @@ import type {
   UploadedDocument,
 } from "@/lib/types";
 
+// everything we stash in the browser
 const PROJECT_PREFIX = "permitpilot:project:";
 const PROJECT_INDEX_KEY = "permitpilot:projects:index";
 const LAST_KEY = "permitpilot:last";
@@ -30,6 +31,7 @@ export interface StoredProjectMeta {
 }
 
 export function sampleConfig(): ProjectConfig {
+  // harbor kitchen numbers for the judge demo
   return {
     name: "Harbor Kitchen",
     projectType: "food_business",
@@ -53,6 +55,7 @@ export function createProject(config: ProjectConfig): Project {
 }
 
 export function sampleProject(now = new Date(), fixedId?: string): Project {
+  // pretent health has been stuck 12 days so the gold bottleneck shows
   const project = createProjectFromConfig(sampleConfig(), now);
   if (fixedId) {
     project.id = fixedId;
@@ -144,6 +147,7 @@ function assignStableId(project: Project, id: string): Project {
 }
 
 function dedupeSampleProjects(projects: Project[]): Project[] {
+  // we used to get two harbor kitchens. keep the newer one
   const bySampleName = new Map<string, Project>();
   const unique: Project[] = [];
 
@@ -171,6 +175,7 @@ export function isSampleProject(project: Project): boolean {
 }
 
 function visibleProjectsForCurrentUser(projects: Project[]): Project[] {
+  // regular people shouldnt see the sample shops they dont own
   const user = getCurrentUser();
   if (user?.isDemoJudge) return projects;
   return projects.filter((project) => !isSampleProject(project));
@@ -181,6 +186,7 @@ export async function workspaceAfterAuth(): Promise<{
   nextPath: string;
 }> {
   const projects = await listUserProjects();
+  // first time users go make their own project
   return {
     projects,
     nextPath: projects.length === 0 ? "/intake?welcome=1" : "/",
@@ -197,6 +203,7 @@ function notifyDbSync(projectId: string, source: "supabase" | "local"): void {
 }
 
 export async function syncProjectToSupabase(project: Project): Promise<boolean> {
+  // save locally even if the cloud write fails
   const supabase = getSupabaseClient();
   const user = getCurrentUser();
   if (!supabase) {
@@ -280,6 +287,7 @@ function rowToProject(row: SupabaseProjectRow): Project {
 }
 
 export async function fetchProjectFromDb(id: string): Promise<Project | null> {
+  // cloud first then the browser copy
   const supabase = getSupabaseClient();
   if (supabase) {
     const { data, error } = await supabase
@@ -329,6 +337,7 @@ export function listLocalProjectsForCurrentUser(): Project[] {
 }
 
 export async function listUserProjects(): Promise<Project[]> {
+  // merge local + cloud then drop extra samples
   const local = listLocalProjectsForCurrentUser();
   const supabase = getSupabaseClient();
   const user = getCurrentUser();
@@ -383,6 +392,7 @@ export function getOrSeedHarborKitchen(): Project {
 }
 
 export function seedMockAccountWorkspace(): {
+  // the 3 sample projects the judge card loads
   primary: Project;
   projects: Project[];
 } {
@@ -478,6 +488,7 @@ export function getLastProjectId(): string | null {
 }
 
 export function updateStepStatus(project: Project, stepId: string, status: PermitStepStatus): Project {
+  // mark approved etc and save it back
   const now = new Date().toISOString();
   const next: Project = {
     ...project,

@@ -2,6 +2,7 @@ import { inspectionTemplates } from "@/fixtures/inspections";
 import type { InspectionItem, InspectionType, PermitStep, ProjectConfig } from "@/lib/types";
 
 export function inspectionsFor(config: ProjectConfig, steps: PermitStep[]): InspectionItem[] {
+  // pick building / fire / health lists from whats on the map
   const ids = new Set(steps.map((step) => step.id));
   const types: InspectionType[] = [];
 

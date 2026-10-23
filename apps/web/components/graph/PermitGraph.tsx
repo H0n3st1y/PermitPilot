@@ -25,6 +25,7 @@ import "@xyflow/react/dist/style.css";
 
 const nodeTypes = { permit: PermitStepNode };
 
+// canned email, not from claude
 function buildDeterministicFollowUpDraft(
   project: Project,
   step: PermitStep,
@@ -91,6 +92,7 @@ export function PermitGraph({
   const selectedBottleneck = selectedId ? bottleneckByStep.get(selectedId) : undefined;
 
   const graph = useMemo(() => {
+    // turn steps into nodes + arrows
     const positions = layoutPermitGraph(project.roadmap.steps);
     const nextNodes: Node[] = project.roadmap.steps.map((step) => {
       const point = positions.get(step.id) ?? { x: 0, y: 0 };
@@ -211,6 +213,7 @@ export function PermitGraph({
     : [];
 
   async function handleExplainCitation() {
+    // pull a quote from the match or the fixture if match is empty
     if (!selectedStep) return;
     const quote =
       matchedForStep[0]?.quote ??

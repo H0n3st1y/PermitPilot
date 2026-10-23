@@ -33,6 +33,7 @@ export function registerTourStartHandler(handler: () => void): () => void {
 }
 
 export function requestProductTour(): void {
+  // homepage button can fire this before the tour component is even up
   if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
     window.dispatchEvent(new Event(TOUR_START_EVENT));
   }
@@ -65,6 +66,7 @@ export function tourHoleFromRect(
   viewport: { width: number; height: number },
   options?: { pad?: number; edge?: number },
 ): TourRect {
+  // cut a hole in the dim overlay around the thing we are pointing at
   const pad = options?.pad ?? HOLE_PAD;
   const edge = options?.edge ?? HOLE_EDGE;
   const left = clamp(rect.left - pad, edge, Math.max(edge, viewport.width - edge - 44));
@@ -124,6 +126,7 @@ export function placeTourCard(
   return { top: clamp(hole.top - gap - card.height, margin, maxTop), left: alignedLeft };
 }
 
+// the 4 spots we walk judges thru
 export const PERMIT_TOUR_STEPS: TourStep[] = [
   {
     id: "bottleneck",

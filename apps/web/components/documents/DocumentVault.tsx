@@ -4,6 +4,7 @@ import { CheckCircle2, FileCheck2, FileText, Trash2, Upload } from "lucide-react
 import { useA11y } from "@/lib/a11y";
 import type { DocumentRequirement, PermitStep, Project, UploadedDocument } from "@/lib/types";
 
+// 10mb max, same as the about page says
 const MAX_BYTES = 10 * 1024 * 1024;
 const STORE_PREVIEW_UNDER = 400 * 1024;
 const ALLOWED = new Set(["application/pdf", "image/png", "image/jpeg", "image/webp"]);

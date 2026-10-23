@@ -6,6 +6,7 @@ export const GRAPH_ORIGIN_X = 16;
 export const GRAPH_ORIGIN_Y = 16;
 
 export function rankSteps(steps: PermitStep[]): Map<string, number> {
+  // how far right the node should sit
   const byId = new Map(steps.map((step) => [step.id, step]));
   const ranks = new Map<string, number>();
 
@@ -30,6 +31,7 @@ export function rankSteps(steps: PermitStep[]): Map<string, number> {
 }
 
 export function layoutPermitGraph(steps: PermitStep[]): Map<string, { x: number; y: number }> {
+  // dump each rank into a column so it looks like a flow
   const ranks = rankSteps(steps);
   const columns = new Map<number, PermitStep[]>();
 

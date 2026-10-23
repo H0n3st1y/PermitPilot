@@ -6,6 +6,7 @@ function roundCurrency(value: number): number {
 }
 
 export function calculateFees(config: ProjectConfig, steps: PermitStep[]): FeeBreakdown {
+  // only charge for steps that actually showed up
   const ids = new Set(steps.map((step) => step.id));
   const lineItems: FeeLineItem[] = [];
   const thousands = Math.max(1, Math.ceil(config.estimatedValuation / 1000));

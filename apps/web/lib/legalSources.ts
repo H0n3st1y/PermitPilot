@@ -1,9 +1,11 @@
 import { readFileSync, readdirSync, existsSync } from "fs";
 import path from "path";
 
+// dont dump a whole law book into the prompt
 const MAX_CHARS = 14_000;
 
 export function resolveSourceDir(state: string): string {
+  // next sometimes starts from the repo root and sometimes from apps/web so try both
   const suffix = path.join("legal-sources", "raw", state.toUpperCase());
   const candidates = [
     path.join(process.cwd(), suffix),
@@ -14,6 +16,7 @@ export function resolveSourceDir(state: string): string {
 
 export function loadJurisdictionExcerpts(state: string): string {
   const dir = resolveSourceDir(state);
+  // no pack for that state, just skip
   if (!existsSync(dir)) return "";
   const files = readdirSync(dir).filter((name) => name.endsWith(".txt")).sort();
   const chunks: string[] = [];

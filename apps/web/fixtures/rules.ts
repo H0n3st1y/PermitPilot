@@ -1,5 +1,6 @@
 import type { RuleDefinition } from "@/lib/types";
 
+// if a rule matches we add those steps. not claude deciding this
 export const RULES: RuleDefinition[] = [
   {
     id: "food-business",

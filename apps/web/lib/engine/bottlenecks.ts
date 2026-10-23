@@ -9,6 +9,7 @@ function joinNames(names: string[]): string {
 }
 
 export function detectBottlenecks(steps: PermitStep[], now = new Date()): Bottleneck[] {
+  // gold outline stuff on the graph
   const byId = new Map(steps.map((step) => [step.id, step]));
   const critical = criticalPathIds(steps);
   const bottlenecks: Bottleneck[] = [];
@@ -19,6 +20,7 @@ export function detectBottlenecks(steps: PermitStep[], now = new Date()): Bottle
       return dependency && dependency.status !== "approved";
     });
 
+    // waiting on something earlier
     if (step.status === "not_started" && blocking.length > 0) {
       const names = joinNames(blocking.map((id) => byId.get(id)?.shortTitle ?? id));
       bottlenecks.push({
@@ -29,6 +31,7 @@ export function detectBottlenecks(steps: PermitStep[], now = new Date()): Bottle
       });
     }
 
+    // sat in review longer than we guessed
     if (step.status === "in_review") {
       const daysInReview = Math.max(
         0,
@@ -63,6 +66,7 @@ export function detectBottlenecks(steps: PermitStep[], now = new Date()): Bottle
   return bottlenecks;
 }
 
+// first step they can actually work on
 export function nextAction(steps: PermitStep[]): PermitStep | undefined {
   const byId = new Map(steps.map((step) => [step.id, step]));
   return steps.find((step) => {

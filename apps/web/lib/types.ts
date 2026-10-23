@@ -1,3 +1,4 @@
+// all the shapes the rest of the app passes around
 export type PermitStepStatus =
   | "not_started"
   | "submitted"

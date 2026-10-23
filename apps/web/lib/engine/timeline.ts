@@ -9,6 +9,7 @@ function catalogRank(id: string): number {
   return index === -1 ? 999 : index;
 }
 
+// blow up if a step depends on itself somehow
 function validateAcyclic(steps: PermitStep[]): void {
   const graph = new Map(steps.map((step) => [step.id, step.dependencies]));
   const visiting = new Set<string>();
@@ -58,6 +59,7 @@ export function scheduleSteps(
       .filter((item): item is PermitStep => Boolean(item))
       .map(schedule);
 
+    // cant start till the latest dep is done
     const begin = dependencyMilestones.reduce((latest, dependency) => {
       const end = parseISODate(dependency.estimatedEndDate);
       return end > latest ? end : latest;
@@ -80,6 +82,7 @@ export function scheduleSteps(
   return ordered.map((step, index) => ({ ...step, sequence: index + 1 }));
 }
 
+// steps with no leftover deps first
 export function topologicalOrder(steps: PermitStep[]): PermitStep[] {
   const remaining = new Map(steps.map((step) => [step.id, step]));
   const result: PermitStep[] = [];
@@ -101,6 +104,7 @@ export function topologicalOrder(steps: PermitStep[]): PermitStep[] {
   return result;
 }
 
+// the chain that sets the last date
 export function criticalPathIds(steps: PermitStep[]): Set<string> {
   if (steps.length === 0) return new Set();
   const latest = steps.reduce((max, step) =>

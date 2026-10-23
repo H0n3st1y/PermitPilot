@@ -7,6 +7,7 @@ const catalogs = { en, es } as const;
 
 type MessageTree = { [key: string]: string | MessageTree };
 
+// walk "graph.title" style keys
 function lookup(tree: MessageTree, path: string): string | undefined {
   const parts = path.split(".");
   let node: string | MessageTree | undefined = tree;
@@ -32,6 +33,7 @@ export function translate(
   path: string,
   vars?: Record<string, string | number>,
 ): string {
+  // spanish missing a key? just use english
   const primary = lookup(catalogs[locale] as MessageTree, path);
   const fallback = locale === "en" ? undefined : lookup(catalogs.en as MessageTree, path);
   const template = primary ?? fallback ?? path;

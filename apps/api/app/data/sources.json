@@ -1,8 +1,0 @@
-[
-  {"id":"demo-general","title":"Demonstration municipal intake guidance","department":"City Clerk","official_url":null,"code_section":null,"page_number":null,"excerpt":null,"retrieval_date":"2026-01-01","verification_status":"demo","content_hash":"demo-general-v1"},
-  {"id":"demo-zoning","title":"Demonstration zoning workflow record","department":"Zoning","official_url":null,"code_section":null,"page_number":null,"excerpt":null,"retrieval_date":"2026-01-01","verification_status":"demo","content_hash":"demo-zoning-v1"},
-  {"id":"demo-building","title":"Demonstration building workflow record","department":"Building","official_url":null,"code_section":null,"page_number":null,"excerpt":null,"retrieval_date":"2026-01-01","verification_status":"demo","content_hash":"demo-building-v1"},
-  {"id":"demo-health","title":"Demonstration health workflow record","department":"Public Health","official_url":null,"code_section":null,"page_number":null,"excerpt":null,"retrieval_date":"2026-01-01","verification_status":"demo","content_hash":"demo-health-v1"},
-  {"id":"demo-fire","title":"Demonstration fire-safety workflow record","department":"Fire Prevention","official_url":null,"code_section":null,"page_number":null,"excerpt":null,"retrieval_date":"2026-01-01","verification_status":"demo","content_hash":"demo-fire-v1"},
-  {"id":"demo-public-works","title":"Demonstration public-works workflow record","department":"Public Works","official_url":null,"code_section":null,"page_number":null,"excerpt":null,"retrieval_date":"2026-01-01","verification_status":"demo","content_hash":"demo-public-works-v1"}
-]

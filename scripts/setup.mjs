@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const web = path.join(root, "apps", "web");
+// node 20 is what we used, older ones get weird
 const major = Number(process.versions.node.split(".")[0]);
 
 if (Number.isNaN(major) || major < 20) {
@@ -21,6 +22,7 @@ function run(command, args, cwd) {
 }
 
 console.log("Installing PermitPilot…");
+// root first then the actual next app
 run("npm", ["install"], root);
 run("npm", ["install"], web);
 

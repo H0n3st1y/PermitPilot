@@ -14,6 +14,7 @@ export interface A11yState {
 }
 
 const A11yContext = createContext<A11yState | null>(null);
+// remember contrast / plain english / language
 const STORAGE_KEY = "permitpilot:a11y";
 
 function isLocale(value: unknown): value is Locale {

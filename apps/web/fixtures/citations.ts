@@ -1,9 +1,6 @@
 import type { CodeCitation } from "@/lib/types";
 
-/**
- * Demonstration references to published model codes.
- * These are not Demo Harbor law and are not a legal determination.
- */
+// demo citations, not a real city code book
 export const CITATIONS: Record<string, CodeCitation> = {
   ibc105: {
     id: "ibc105",

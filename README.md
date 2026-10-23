@@ -32,7 +32,7 @@ To stop the app, press `Ctrl+C` in the terminal.
 
 ## What we built it with
 
-TypeScript, React, Next.js, and Tailwind CSS. Tests use Vitest. The live product is the Next.js app in `apps/web`. The older Python folder in `apps/api` is not needed to run the demo.
+TypeScript, React, Next.js, and Tailwind CSS. Tests use Vitest. The app lives in `apps/web`.
 
 ## Demo note
 

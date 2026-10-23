@@ -6,6 +6,7 @@ import type { FeeBreakdown, ProjectConfig } from "@/lib/types";
 import { PROJECT_TYPE_LABELS } from "@/lib/types";
 
 export function FeeSummary({
+  // just lists the line items we already calculated
   fees,
   config,
 }: {

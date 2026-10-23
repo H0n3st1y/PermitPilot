@@ -8,6 +8,7 @@ import { useA11y } from "@/lib/a11y";
 import type { Bottleneck, PermitStep, PermitStepStatus, Project } from "@/lib/types";
 
 export function TimelineView({
+  // dates are guesses not promises
   project,
   bottlenecks,
   onStatusChange,

@@ -17,6 +17,7 @@ export interface RuleEvaluation {
   occupantLoad: number;
 }
 
+// rough headcount from sqft so fire/health can use it
 export function estimateOccupantLoad(
   squareFootage: number,
   occupancy: OccupancyGroup,
@@ -40,6 +41,7 @@ export function evaluateRules(
   config: ProjectConfig,
   now = new Date(),
 ): RuleEvaluation {
+  // same inputs always give the same steps
   const context = buildEvaluationContext(config);
   const occupantLoad = context.occupantLoad as number;
   const selected = new Map<string, ReturnType<typeof hydrateStep>>();
@@ -47,6 +49,7 @@ export function evaluateRules(
   const warnings: string[] = [];
   const timestamp = now.toISOString();
 
+  // higher priority rules go first
   const orderedRules = [...RULES].sort((a, b) => {
     if (b.priority !== a.priority) return b.priority - a.priority;
     return a.id.localeCompare(b.id);
@@ -54,6 +57,7 @@ export function evaluateRules(
 
   for (const rule of orderedRules) {
     const state = String(context.state ?? "NH");
+    // skip rules that are for a different state
     if (rule.states?.length && !rule.states.includes(state)) continue;
     const [matched, conditions] = evaluateCondition(rule.conditions, context);
     if (!matched) continue;
@@ -67,6 +71,7 @@ export function evaluateRules(
       if (!definition) {
         throw new Error(`Unknown step id in rule ${rule.id}: ${stepId}`);
       }
+      // dont add the same step twice
       if (!selected.has(stepId)) {
         selected.set(stepId, hydrateStep(definition, timestamp));
         traces.push({
@@ -82,6 +87,7 @@ export function evaluateRules(
   const selectedIds = new Set(selected.keys());
   const rawSteps = [...selected.values()].map((step) => {
     const definition = STEP_DEFINITIONS[step.id];
+    // drop deps we didnt actually pick
     const presentDependencies = step.dependencies.filter((id) => selectedIds.has(id));
     const dependencies =
       presentDependencies.length > 0

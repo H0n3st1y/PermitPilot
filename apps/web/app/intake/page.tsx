@@ -33,6 +33,7 @@ const AREA_LABELS: Record<ZoneDistrict, string> = {
   industrial: "An industrial area",
 };
 
+// shortcuts if they dont want to fill the whole form
 const QUICK_PRESETS: {
   id: string;
   label: string;

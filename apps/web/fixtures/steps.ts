@@ -3,6 +3,7 @@ import type { PermitStep, StepDefinition } from "@/lib/types";
 
 const ACCEPT_DOCS = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
 
+// catalog of every step a rule can add
 export const STEP_DEFINITIONS: Record<string, StepDefinition> = {
   "zoning-review": {
     id: "zoning-review",

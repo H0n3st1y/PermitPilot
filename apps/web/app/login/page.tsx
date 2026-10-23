@@ -21,6 +21,7 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSampleAccount(destination: "home" | "tour") {
+    // same sample account as the homepage card
     setSubmitting(true);
     setError("");
     await signInAsDemoJudge();

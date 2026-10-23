@@ -4,6 +4,7 @@ import { inspectionsFor } from "@/lib/engine/inspections";
 import { evaluateRules, estimateOccupantLoad } from "@/lib/engine/rules";
 import type { PermitStep, Project, ProjectConfig } from "@/lib/types";
 
+// build the whole project off the intake answers
 export function createProjectFromConfig(config: ProjectConfig, now = new Date()): Project {
   const evaluation = evaluateRules(config, now);
   const id = crypto.randomUUID();
@@ -29,6 +30,7 @@ export function createProjectFromConfig(config: ProjectConfig, now = new Date())
   };
 }
 
+// first start to last end so the banner can say how long it looks
 function scheduledSpanDays(steps: PermitStep[]): number {
   if (steps.length === 0) return 0;
   const start = steps.reduce(

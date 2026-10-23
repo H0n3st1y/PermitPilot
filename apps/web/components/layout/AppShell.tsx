@@ -23,6 +23,7 @@ export function AppShell({
   const router = useRouter();
   const { user } = useAuth();
   const [syncPulse, setSyncPulse] = useState(false);
+  // little blink when a project saves
 
   useEffect(() => {
     const onSync = () => {

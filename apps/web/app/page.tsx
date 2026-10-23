@@ -147,6 +147,7 @@ export default function HomePage() {
   }, [user?.id]);
 
   async function handleEnterMockAccount(openTourImmediately: boolean) {
+    // load the 3 sample shops for the judge account
     setBusy(true);
     setAuthError("");
     await signInAsDemoJudge();
@@ -159,6 +160,7 @@ export default function HomePage() {
   }
 
   async function handleEmailAuth(event: React.FormEvent<HTMLFormElement>) {
+    // real users should not get harbor kitchen dumped on them
     event.preventDefault();
     setBusy(true);
     setAuthError("");

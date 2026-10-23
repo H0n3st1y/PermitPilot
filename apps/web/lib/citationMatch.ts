@@ -1,3 +1,4 @@
+// shape we get back from /api/citations
 export interface MatchedCitation {
   stepId: string;
   code: string;

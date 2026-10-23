@@ -74,6 +74,7 @@ export function ProjectDashboard({
 
   useEffect(() => {
     let active = true;
+    // show the local copy right away then swap if cloud has a newer one
     const loaded = getProject(id);
     if (loaded) {
       setProject(loaded);

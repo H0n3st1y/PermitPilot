@@ -16,4 +16,11 @@ playwright-report/
 test-results/
 *.tsbuildinfo
 .DS_Store
+.cursor/
+.cursorignore
+.cursorrules
+AGENTS.md
+docs/
+apps/api/
+apps/web/legal-sources/README.md
 

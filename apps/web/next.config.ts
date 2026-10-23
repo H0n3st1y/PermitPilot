@@ -4,6 +4,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
   turbopack: {
+    // stop next from treating the parent folder as the app
     root: path.join(__dirname),
   },
   async headers() {

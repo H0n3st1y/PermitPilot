@@ -23,6 +23,7 @@ export const USE_CASE_GROUPS = [
   "Events",
 ] as const;
 
+// cards on the intake page
 export const USE_CASES: UseCaseDefinition[] = [
   {
     id: "restaurant",
@@ -203,6 +204,7 @@ export function findUseCase(id: string | undefined): UseCaseDefinition | undefin
 }
 
 export function applyUseCase(current: ProjectConfig, useCase: UseCaseDefinition): ProjectConfig {
+  // flipping the card fills in the flags the rules look at
   return {
     ...current,
     useCase: useCase.id,

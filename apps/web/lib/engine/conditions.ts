@@ -4,6 +4,7 @@ function isGroup(node: ConditionNode): node is Extract<ConditionNode, { all?: un
   return "all" in node || "any" in node || "none" in node;
 }
 
+// just the operators the rule json uses
 function compare(actual: unknown, operator: string, expected: unknown): boolean {
   switch (operator) {
     case "equals":
@@ -35,6 +36,7 @@ export function evaluateCondition(
   node: ConditionNode,
   context: Record<string, unknown>,
 ): [boolean, string[]] {
+  // groups can be all / any / none
   if (isGroup(node)) {
     if (node.all) {
       const results = node.all.map((item) => evaluateCondition(item, context));

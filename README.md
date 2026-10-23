@@ -17,7 +17,7 @@ npm run dev
 
 3. Open [http://127.0.0.1:3000](http://127.0.0.1:3000)
 
-`npm run setup` installs packages and creates `apps/web/.env.local` if it is missing. The sample projects work with that empty file.
+`npm run setup` installs packages. Sample projects work with no extra files.
 
 To stop the app, press `Ctrl+C` in the terminal.
 
@@ -29,15 +29,6 @@ To stop the app, press `Ctrl+C` in the terminal.
 | Node is older than 20 | `node -v` should print `v20` or higher |
 | Port 3000 is in use | Quit the other app using that port, or tell us and we can change it |
 | Page is blank | Use `http://127.0.0.1:3000`, not a random IP |
-
-## Optional extras
-
-These are **not** required to click through Harbor Kitchen.
-
-- **Supabase** — paste project URL and anon key into `apps/web/.env.local` if you want cloud sign-in.
-- **Claude explanations** — paste `ANTHROPIC_API_KEY` and a workspace id that starts with `wrkspc_` if you want **Explain this citation** to use Claude. Without them, the button still shows a local summary.
-
-Restart `npm run dev` after editing `.env.local`.
 
 ## What we built it with
 

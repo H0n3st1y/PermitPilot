@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { copyFileSync, existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,15 +23,6 @@ function run(command, args, cwd) {
 console.log("Installing PermitPilot…");
 run("npm", ["install"], root);
 run("npm", ["install"], web);
-
-const example = path.join(web, ".env.example");
-const localEnv = path.join(web, ".env.local");
-if (!existsSync(localEnv) && existsSync(example)) {
-  copyFileSync(example, localEnv);
-  console.log("Created apps/web/.env.local. The app runs without extra keys.");
-} else {
-  console.log("Kept the existing apps/web/.env.local file.");
-}
 
 console.log("");
 console.log("Ready. Start it with:");

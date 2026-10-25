@@ -37,16 +37,20 @@ const QUOTA_WINDOW_MS = 60_000;
 const QUOTA_REQUESTS = 10;
 const MAX_QUOTA_USERS = 2048;
 
+// read the body in chunks and stop if it gets too big
 async function readBoundedBody(request: Request): Promise<unknown> {
+  // header already says the body is over the limit
   if (Number(request.headers.get("content-length")) > MAX_REQUEST_BYTES) throw new Error("BODY_TOO_LARGE");
   const reader = request.body?.getReader();
   if (!reader) throw new Error("INVALID_JSON");
   const chunks: Uint8Array[] = [];
   let length = 0;
+  // keep reading until the stream ends or we hit the cap
   while (true) {
     const { value, done } = await reader.read();
     if (done) break;
     length += value.byteLength;
+    // cancel the rest so a huge body doesn't keep coming
     if (length > MAX_REQUEST_BYTES) {
       await reader.cancel();
       throw new Error("BODY_TOO_LARGE");
@@ -55,14 +59,17 @@ async function readBoundedBody(request: Request): Promise<unknown> {
   }
   const body = new Uint8Array(length);
   let offset = 0;
+  // stitch the chunks back into one buffer
   for (const chunk of chunks) { body.set(chunk, offset); offset += chunk.byteLength; }
   return JSON.parse(new TextDecoder().decode(body));
 }
 
+// ask supabase who this bearer token belongs to
 async function verifiedCloudUser(request: Request): Promise<string | null> {
   const token = request.headers.get("authorization")?.match(/^Bearer (\S+)$/i)?.[1];
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  // missing token, a huge token, or no supabase config means no user
   if (!token || token.length > 8192 || !url || !key) return null;
   try {
     const client = createClient(url.replace(/\/rest\/v1\/?$/i, "").replace(/\/+$/, ""), key, {
@@ -74,8 +81,10 @@ async function verifiedCloudUser(request: Request): Promise<string | null> {
   } catch { return null; }
 }
 
+// count this user's requests and return how many seconds they should wait
 function takeQuota(userId: string): number {
   const now = Date.now();
+  // drop windows that already expired
   for (const [id, quota] of quotas) if (quota.resetAt <= now) quotas.delete(id);
   let quota = quotas.get(userId);
   if (!quota) {
@@ -84,12 +93,15 @@ function takeQuota(userId: string): number {
     quota = { count: 0, resetAt: now + QUOTA_WINDOW_MS };
     quotas.set(userId, quota);
   }
+  // already at the cap, so tell them how long is left
   if (quota.count >= QUOTA_REQUESTS) return Math.max(1, Math.ceil((quota.resetAt - now) / 1000));
   quota.count += 1;
   return 0;
 }
 
+// local checklist text when we are not calling claude
 function localResponse(payload: MatchRequest, state: string, note: string) {
+  // explain sends a paragraph; match sends empty lists
   return NextResponse.json(payload.action === "explain"
     ? { explanation: localExplanation(payload, state), modelUsed: false, note }
     : { citations: [], followUps: [], modelUsed: false, note },
@@ -110,6 +122,7 @@ function localExplanation(payload: MatchRequest, state: string): string {
   const kind = payload.config.useCase ?? payload.config.projectType;
   return [
     `${step} is on the map for a ${kind} in ${state}.`,
+    // use the quote when we have one, otherwise the checklist reason
     quote
       ? `The cited language says: "${quote}"`
       : "No specific quote was attached, so this uses the checklist reason for the step.",
@@ -120,26 +133,33 @@ function localExplanation(payload: MatchRequest, state: string): string {
 
 // turn the ugly api error into something we can show
 function publicClaudeError(message: string): string {
+  // no key on the server
   if (message === "NO_KEY") {
     return "No Anthropic API key is configured on the server.";
   }
+  // bad or forbidden key
   if (message.includes("CLAUDE_401") || message.includes("CLAUDE_403")) {
     return "Assisted explanations are unavailable on this installation. Showing local checklist guidance.";
   }
+  // key exists but the workspace is not hooked up
   if (message.includes("workspace")) {
     return "Claude is not connected for this key yet, so this is a local summary. It is not official legal advice.";
   }
+  // model name was wrong
   if (message.includes("CLAUDE_404")) {
     return "Claude could not find the requested model.";
   }
+  // too many requests
   if (message.includes("CLAUDE_429")) {
     return "Claude is rate-limited. Try again in a moment.";
   }
   return "Claude is unavailable right now. Showing a local plain-language summary instead.";
 }
 
+// post the prompt to claude and return the text
 async function callClaude(prompt: string): Promise<string> {
   const key = process.env.ANTHROPIC_API_KEY?.trim();
+  // nothing to call without a key
   if (!key) {
     throw new Error("NO_KEY");
   }
@@ -151,6 +171,7 @@ async function callClaude(prompt: string): Promise<string> {
     "x-api-key": key,
     "anthropic-version": "2023-06-01",
   };
+  // only send the workspace header when we have an id
   if (workspaceId) {
     headers["anthropic-workspace-id"] = workspaceId;
   }
@@ -169,17 +190,20 @@ async function callClaude(prompt: string): Promise<string> {
         messages: [{ role: "user", content: prompt }],
       }),
     });
+    // a good response: take the first text part
     if (response.ok) {
       const body = (await response.json()) as {
         content?: { type: string; text?: string }[];
       };
       const text = body.content?.find((part) => part.type === "text")?.text ?? "";
+      // empty text means try the next model
       if (text.trim()) return text;
       lastError = `CLAUDE_EMPTY:${model}`;
       continue;
     }
     const detail = await response.text();
     lastError = `CLAUDE_${response.status}:${detail.slice(0, 240)}`;
+    // auth failures will not get better on the next model
     if (response.status === 401 || response.status === 403) {
       break;
     }
@@ -191,21 +215,26 @@ async function callClaude(prompt: string): Promise<string> {
 function parseJsonObject(text: string): Record<string, unknown> {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
+  // no object in the text
   if (start < 0 || end <= start) return {};
   try {
     return JSON.parse(text.slice(start, end + 1)) as Record<string, unknown>;
   } catch {
+    // bad json just means no citations
     return {};
   }
 }
 
+// match citations or explain one, falling back to local text
 export async function POST(request: Request) {
+  // this route only accepts json
   if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
     return NextResponse.json({ error: "Send this request as JSON." }, { status: 415 });
   }
   let payload: MatchRequest;
   try {
     const parsed = requestSchema.safeParse(await readBoundedBody(request));
+    // shape didn't match the schema
     if (!parsed.success) return NextResponse.json({ error: "Check the project details and citation, then try again." }, { status: 400 });
     payload = parsed.data;
   } catch (error) {
@@ -215,14 +244,17 @@ export async function POST(request: Request) {
 
   const config = payload.config;
   const state = (config.state ?? "NH").toUpperCase();
+  // no key, so stay on the local checklist text
   if (!process.env.ANTHROPIC_API_KEY?.trim()) {
     return localResponse(payload, state, "Assisted explanations are not enabled here. Showing local checklist guidance.");
   }
   const userId = await verifiedCloudUser(request);
+  // cloud sign-in is required before we spend the key
   if (!userId) {
     return localResponse(payload, state, "Sign in to use assisted explanations. Showing local checklist guidance.");
   }
   const retryAfter = takeQuota(userId);
+  // over the per-minute cap
   if (retryAfter) {
     return NextResponse.json({ error: "You've requested several explanations. Wait a minute and try again." }, {
       status: 429, headers: { "Retry-After": String(retryAfter), "Cache-Control": "no-store" },
@@ -271,10 +303,12 @@ export async function POST(request: Request) {
       ].join("\n\n"),
     );
     const parsed = parseJsonObject(text);
+    // keep citations that match a step we already asked about
     const citations = (Array.isArray(parsed.citations) ? parsed.citations.slice(0, 60) : []).flatMap((item) => {
       const citation = citationSchema.safeParse(item);
       return citation.success && payload.stepIds.includes(citation.data.stepId) ? [citation.data] : [];
     });
+    // keep follow-ups that match the shape, drop the rest
     const followUps = (Array.isArray(parsed.followUps) ? parsed.followUps.slice(0, 10) : []).flatMap((item) => {
       const followUp = followUpSchema.safeParse(item);
       return followUp.success ? [followUp.data] : [];

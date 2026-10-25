@@ -9,9 +9,12 @@ import { translate } from "@/lib/i18n";
 vi.mock("@/lib/a11y", () => ({ useA11y: () => ({ plainLanguage: false, t: (key: string) => translate("en", key) }) }));
 vi.mock("@/components/citations/CodeCitationBadge", () => ({ CodeCitationBadge: () => null }));
 
+// give the components a react global in this jsdom env
 beforeEach(() => { vi.stubGlobal("React", React); });
+// unmount and restore mocks between tests
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
+// two steps, and the second one waits on the first
 function fixture() {
   const project = sampleProject();
   const first = { ...project.roadmap.steps[0], status: "not_started" as const, dependencies: [], parallelWith: [] };
@@ -21,6 +24,7 @@ function fixture() {
 }
 
 describe("timeline phone navigation and recorded status", () => {
+  // a prerequisite button focuses that step and says it is waiting
   it("navigates to exact prerequisite articles without requiring graph gestures", () => {
     const { project, first, second } = fixture();
     render(React.createElement(TimelineView, { project, bottlenecks: [{ stepId: second.id, kind: "blocked_dependency", message: "Waiting", plainLanguage: "Waiting" }], onStatusChange: vi.fn() }));
@@ -33,6 +37,7 @@ describe("timeline phone navigation and recorded status", () => {
     expect(screen.getByText(/1 waiting on prerequisites/)).toBeTruthy();
   });
 
+  // the jump menu resets, and a status change still calls back
   it("resets the jump selector so any step can be selected again and preserves the status callback", () => {
     const { project, second } = fixture();
     const onStatusChange = vi.fn();
@@ -49,6 +54,7 @@ describe("timeline phone navigation and recorded status", () => {
     expect(screen.getAllByText(/Estimated:/)).toHaveLength(2);
   });
 
+  // in review is not the same message as waiting to start
   it("distinguishes a recorded review from a step waiting to start", () => {
     const { project, second } = fixture();
     project.roadmap.steps[1] = { ...second, status: "in_review" };
@@ -58,6 +64,7 @@ describe("timeline phone navigation and recorded status", () => {
     expect(screen.getByText("Approval not recorded")).toBeTruthy();
   });
 
+  // no steps shows the empty heading, not an approved count
   it("keeps an empty roadmap distinct from completed approvals", () => {
     const { project } = fixture();
     project.roadmap.steps = [];

@@ -11,12 +11,15 @@ vi.mock("@/components/tour/ProductTour", () => ({ ProductTour: () => null }));
 vi.mock("@/lib/a11y", () => ({ useA11y: () => ({ plainLanguage: false, t: (key: string, vars?: Record<string, string | number>) => translate("en", key, vars) }) }));
 vi.mock("@/lib/supabase", () => ({ getCurrentUser: () => null, getSupabaseClient: () => null }));
 
+// empty storage and a clean url before each dashboard render
 beforeEach(() => { vi.stubGlobal("React", React); localStorage.clear(); window.history.replaceState(null, "", "/"); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
+// blocked storage shows an error, and retry loads the saved project
 it("offers recovery when storage is blocked and loads the project after retry", async () => {
   const project = sampleProject();
   saveProject(project);
+  // every storage read throws until we restore it
   const blocked = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new DOMException("Storage denied", "SecurityError"); });
   render(React.createElement(ProjectDashboard, { id: project.id }));
   await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("allow browser storage"));
@@ -27,6 +30,7 @@ it("offers recovery when storage is blocked and loads the project after retry", 
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
+// the created flag shows the welcome card, and dismissing it keeps the tab
 it("orients a newly generated roadmap, then dismisses it without losing the selected section", async () => {
   const project = sampleProject();
   saveProject(project);
@@ -43,6 +47,7 @@ it("orients a newly generated roadmap, then dismisses it without losing the sele
   expect(document.activeElement?.id).toBe("next-action-title");
 });
 
+// a normal visit does not show the welcome card
 it("does not show new-roadmap orientation on an ordinary project visit", async () => {
   const project = sampleProject();
   saveProject(project);
@@ -51,6 +56,7 @@ it("does not show new-roadmap orientation on an ordinary project visit", async (
   expect(screen.queryByRole("heading", { name: "Your roadmap is ready" })).toBeNull();
 });
 
+// two overlapping reads both stick, even if the second finishes first
 it("retains both concurrent document attachments when file reads finish out of order in one batch", async () => {
   const project = { ...sampleProject(), documents: [] };
   saveProject(project);
@@ -63,6 +69,7 @@ it("retains both concurrent document attachments when file reads finish out of o
   fireEvent.change(inputs[1], { target: { files: [new File(["second"], "second-plan.pdf", { type: "application/pdf" })] } });
   expect(readers).toHaveLength(2);
   await act(async () => {
+    // finish the second file before the first
     for (const reader of [readers[1], readers[0]]) {
       Object.defineProperty(reader, "result", { value: "data:application/pdf;base64,AA==" });
       reader.dispatchEvent(new ProgressEvent("load"));

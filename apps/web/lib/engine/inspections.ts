@@ -6,6 +6,7 @@ export function inspectionsFor(config: ProjectConfig, steps: PermitStep[]): Insp
   const ids = new Set(steps.map((step) => step.id));
   const types: InspectionType[] = [];
 
+  // building checklist if any construction-ish permit is on the roadmap
   if (
     ids.has("building-permit") ||
     ids.has("plan-review") ||
@@ -18,9 +19,11 @@ export function inspectionsFor(config: ProjectConfig, steps: PermitStep[]): Insp
   ) {
     types.push("building");
   }
+  // fire checklist only when fire review is in the plan
   if (ids.has("fire-review")) {
     types.push("fire");
   }
+  // health checklist for a health permit or any food prep
   if (ids.has("health-permit") || config.foodPreparation) {
     types.push("health");
   }

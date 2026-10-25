@@ -1,6 +1,7 @@
 import { citationsFor } from "@/fixtures/citations";
 import type { PermitStep, StepDefinition } from "@/lib/types";
 
+// File types every step document is willing to accept
 const ACCEPT_DOCS = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
 
 // catalog of every step a rule can add
@@ -442,6 +443,7 @@ export const STEP_DEFINITIONS: Record<string, StepDefinition> = {
   },
 };
 
+// Turn a catalog step into a live step that has not been started
 export function hydrateStep(
   definition: StepDefinition,
   statusChangedAt: string,
@@ -456,11 +458,13 @@ export function hydrateStep(
     description: definition.description,
     plainLanguage: definition.plainLanguage,
     whyRequired: definition.whyRequired,
+    // Fresh steps start here. Sequence and dates are left for the caller.
     status: "not_started",
     statusChangedAt,
     dependencies: definition.dependencies,
     parallelWith: definition.parallelWith,
     documents: definition.documents,
+    // Swap the citation ids for the full records
     citations: citationsFor(definition.citationIds),
     estimatedMinDays: definition.estimatedMinDays,
     estimatedMaxDays: definition.estimatedMaxDays,

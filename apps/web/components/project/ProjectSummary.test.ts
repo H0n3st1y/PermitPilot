@@ -12,11 +12,13 @@ import type { Project } from "@/lib/types";
 vi.mock("@/lib/a11y", () => ({ useA11y: () => ({ t: (key: string) => translate("en", key) }) }));
 vi.mock("@/lib/supabase", () => ({ getCurrentUser: () => null, getSupabaseClient: () => null }));
 
+// fixed date so the estimated finish does not move
 const now = new Date("2026-10-24T12:00:00Z");
 
 beforeEach(() => { vi.stubGlobal("React", React); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
+// render the header and the priority cards together
 function renderSummary(project: Project) {
   const summary = getDashboardSummary(project, detectBottlenecks(project.roadmap.steps, now));
   const onOpenStep = vi.fn();
@@ -29,6 +31,7 @@ function renderSummary(project: Project) {
   return { summary, onOpenStep, onOpenDocuments, onOpenTimeline };
 }
 
+// no steps should not say everything is approved
 it("shows an empty roadmap without claiming all steps are approved", () => {
   const project = sampleProject(now);
   project.roadmap.steps = [];
@@ -42,8 +45,10 @@ it("shows an empty roadmap without claiming all steps are approved", () => {
   expect(screen.getByText("No schedule yet")).toBeTruthy();
 });
 
+// all approved still means recorded status, and missing files stay visible
 it("qualifies all approvals as recorded checklist status and still reports missing attachments", () => {
   const project = sampleProject(now);
+  // mark every step approved for this case
   project.roadmap.steps = project.roadmap.steps.map((step) => ({ ...step, status: "approved" }));
   project.documents = [];
   const { summary, onOpenDocuments } = renderSummary(project);
@@ -56,6 +61,7 @@ it("qualifies all approvals as recorded checklist status and still reports missi
   expect(onOpenDocuments).toHaveBeenCalledOnce();
 });
 
+// the sample health step, missing files, blocked step, and finish date all open
 it("opens the recommended health review, real missing attachments, blocked step and estimated timeline", () => {
   const project = sampleProject(now);
   const { summary, onOpenStep, onOpenDocuments, onOpenTimeline } = renderSummary(project);
@@ -75,8 +81,10 @@ it("opens the recommended health review, real missing attachments, blocked step 
   expect(screen.queryByRole("heading", { name: "Prepare Health permit" })).toBeNull();
 });
 
+// a not-started first step does not pretend earlier approvals exist
 it("explains the first eligible step without implying approvals already exist", () => {
   const project = sampleProject(now);
+  // every step is still not started
   project.roadmap.steps = project.roadmap.steps.map((step) => ({ ...step, status: "not_started" }));
   const { summary, onOpenStep } = renderSummary(project);
   expect(summary.recommendedStep?.dependencies).toEqual([]);

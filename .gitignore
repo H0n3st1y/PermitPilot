@@ -20,14 +20,7 @@ test-results/
 .cursorignore
 .cursorrules
 AGENTS.md
-docs/*
-!docs/MOBILE_DISTRIBUTION.md
-!docs/VERIFICATION.md
-!docs/dashboard-polish/
-!docs/intake-polish/
-!docs/mobile-refinement/
-!docs/brand-refresh/
-!docs/PRODUCTION.md
+docs/
 !**/.env.example
 apps/api/
 apps/web/legal-sources/README.md

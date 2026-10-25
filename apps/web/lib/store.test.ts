@@ -6,6 +6,7 @@ import { getCurrentUser, getSupabaseClient } from "@/lib/supabase";
 vi.mock("@/lib/supabase", () => ({ getCurrentUser: vi.fn(() => null), getSupabaseClient: vi.fn(() => null) }));
 const cloudUser = { id: "real-user", email: "owner@example.com", name: "Owner", mode: "supabase" as const };
 
+// a tiny supabase query that returns one row from maybeSingle
 function cloudRead(row: unknown) {
   const eq = vi.fn();
   const query = { eq, maybeSingle: async () => ({ data: row, error: null }) };
@@ -13,14 +14,18 @@ function cloudRead(row: unknown) {
   return { from: () => ({ select: () => query }), eq };
 }
 
+// saving and loading when the browser or the cloud misbehaves
 describe("project persistence feedback", () => {
+  // empty storage and no cloud user
   beforeEach(() => {
     localStorage.clear();
     vi.mocked(getSupabaseClient).mockReset().mockReturnValue(null);
     vi.mocked(getCurrentUser).mockReset().mockReturnValue(null);
   });
+  // put the spies back after each test
   afterEach(() => { vi.restoreAllMocks(); });
 
+  // a thrown getItem looks like unreadable storage, not a missing project
   it("keeps unavailable browser storage distinct from a missing project without crashing readers", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new DOMException("Storage denied", "SecurityError"); });
     expect(isProjectStorageReadable()).toBe(false);
@@ -29,11 +34,13 @@ describe("project persistence feedback", () => {
     expect(listLocalProjectsForCurrentUser()).toEqual([]);
   });
 
+  // a full disk should throw instead of pretending the save worked
   it("preserves write failures so actions cannot claim they were saved", () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new DOMException("Storage full", "QuotaExceededError"); });
     expect(() => saveProject(sampleProject())).toThrow("Storage full");
   });
 
+  // the cloud row still loads when both read and write storage throw
   it("loads a cloud project even when browser storage and caching are denied", async () => {
     const project = sampleProject(new Date("2026-10-24"));
     const row = { id: project.id, config: project.config, roadmap: project.roadmap, documents: project.documents, inspections: project.inspections, fees: project.fees, created_at: project.createdAt, updated_at: project.updatedAt };
@@ -46,6 +53,7 @@ describe("project persistence feedback", () => {
     expect(cloud.eq).toHaveBeenCalledWith("user_id", cloudUser.id);
   });
 
+  // with no supabase client, a save is reported as local
   it("reports browser storage when no cloud service is configured", async () => {
     const project = sampleProject();
     const listener = vi.fn();
@@ -56,6 +64,7 @@ describe("project persistence feedback", () => {
     window.removeEventListener(DB_SYNC_EVENT, listener);
   });
 
+  // a rejected upsert reports syncing then error, and the browser copy stays
   it("reports a rejected cloud write without losing the browser copy", async () => {
     const project = sampleProject();
     saveProject(project);
@@ -70,6 +79,7 @@ describe("project persistence feedback", () => {
     window.removeEventListener(DB_SYNC_EVENT, listener);
   });
 
+  // a newer local updatedAt beats an older cloud row
   it("does not replace a newer browser project with an older cloud version", async () => {
     const project = sampleProject(new Date("2026-10-24"));
     saveProject(project);
@@ -80,6 +90,7 @@ describe("project persistence feedback", () => {
     expect(getProject(project.id)?.config.name).toBe(project.config.name);
   });
 
+  // anonymous and demo sessions never touch the projects table
   it("never reads or writes cloud rows for anonymous or demonstration sessions", async () => {
     const project = sampleProject();
     const from = vi.fn();

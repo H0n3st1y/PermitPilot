@@ -10,13 +10,18 @@ export function rankSteps(steps: PermitStep[]): Map<string, number> {
   const byId = new Map(steps.map((step) => [step.id, step]));
   const ranks = new Map<string, number>();
 
+  // column number for one step, based on its deepest dependency
   function rankOf(id: string, stack: Set<string> = new Set()): number {
     const cached = ranks.get(id);
+    // already figured this one out
     if (cached !== undefined) return cached;
+    // a loop in the deps, don't recurse forever
     if (stack.has(id)) return 0;
     const step = byId.get(id);
+    // missing step sits in the first column
     if (!step) return 0;
     stack.add(id);
+    // one column past the furthest dependency, or column 0 if it has none
     const value =
       step.dependencies.length === 0
         ? 0
@@ -26,6 +31,7 @@ export function rankSteps(steps: PermitStep[]): Map<string, number> {
     return value;
   }
 
+  // rank every step, including ones nothing points at
   for (const step of steps) rankOf(step.id);
   return ranks;
 }
@@ -35,6 +41,7 @@ export function layoutPermitGraph(steps: PermitStep[]): Map<string, { x: number;
   const ranks = rankSteps(steps);
   const columns = new Map<number, PermitStep[]>();
 
+  // bucket steps by column, keeping sequence order inside a column
   for (const step of [...steps].sort((a, b) => a.sequence - b.sequence)) {
     const rank = ranks.get(step.id) ?? 0;
     const column = columns.get(rank) ?? [];
@@ -43,6 +50,7 @@ export function layoutPermitGraph(steps: PermitStep[]): Map<string, { x: number;
   }
 
   const positions = new Map<string, { x: number; y: number }>();
+  // rank moves right, index in the column moves down
   for (const [rank, column] of columns) {
     column.forEach((step, index) => {
       positions.set(step.id, {

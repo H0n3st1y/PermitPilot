@@ -9,6 +9,7 @@ import LoginPage from "@/app/login/page";
 import { sampleProject } from "@/lib/store";
 import { translate } from "@/lib/i18n";
 
+// router, auth, and save mocks the pages call into
 const mocks = vi.hoisted(() => ({ signIn: vi.fn(), push: vi.fn(), setLocale: vi.fn(), workspace: vi.fn(), saveProject: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push }), useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/components/layout/AppShell", () => ({ AppShell: ({ children }: { children: React.ReactNode }) => children }));
@@ -20,10 +21,13 @@ vi.mock("@/lib/supabase", () => ({
 }));
 vi.mock("@/lib/store", async (original) => ({ ...await original<typeof import("@/lib/store")>(), workspaceAfterAuth: mocks.workspace, saveProject: mocks.saveProject }));
 
+// fresh react global and empty storage for each test
 beforeEach(() => { vi.stubGlobal("React", React); vi.clearAllMocks(); localStorage.clear(); });
+// unmount so the next render starts clean
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("document attachment feedback", () => {
+  // a text file is rejected and nothing is uploaded
   it("reports invalid files inline with a recovery action and preserves the checklist", () => {
     const project = sampleProject();
     const onUpload = vi.fn();
@@ -35,8 +39,10 @@ describe("document attachment feedback", () => {
     expect(document.activeElement?.getAttribute("aria-label")).toMatch(/(Upload|Replace) file for/);
   });
 
+  // a failed read shows an error and leaves the upload button usable
   it("reports read failures and allows retrying without uploading a broken file", async () => {
     const onUpload = vi.fn();
+    // pretend the file reader fails immediately
     const read = vi.spyOn(FileReader.prototype, "readAsDataURL").mockImplementation(function (this: FileReader) {
       this.dispatchEvent(new ProgressEvent("error"));
     });
@@ -48,6 +54,7 @@ describe("document attachment feedback", () => {
     read.mockRestore();
   });
 
+  // a big pdf saves details only and is not marked verified
   it("makes large-file metadata limits explicit and does not claim verification", async () => {
     const onUpload = vi.fn();
     render(React.createElement(DocumentVault, { project: sampleProject(), onUpload, onRemove: vi.fn() }));
@@ -60,6 +67,7 @@ describe("document attachment feedback", () => {
 });
 
 describe("authentication submission", () => {
+  // a second submit is ignored, and a network error can be retried
   it("blocks duplicate requests while pending and presents recoverable network errors", async () => {
     let reject!: (reason: Error) => void;
     mocks.signIn.mockReturnValue(new Promise((_resolve, fail) => { reject = fail; }));
@@ -76,6 +84,7 @@ describe("authentication submission", () => {
     expect(mocks.push).not.toHaveBeenCalled();
   });
 
+  // right arrow moves from sign in to create account
   it("lets keyboard users switch sign-in tabs", () => {
     render(React.createElement(LoginPage));
     const signIn = screen.getByRole("tab", { name: "Sign in" }); signIn.focus();
@@ -86,6 +95,7 @@ describe("authentication submission", () => {
 });
 
 describe("language picker keyboard support", () => {
+  // arrows move the language list and escape closes it
   it("focuses the selected language, supports arrows and closes with Escape", () => {
     render(React.createElement(A11yControls));
     const trigger = screen.getByRole("button", { name: /language/i });
@@ -100,6 +110,7 @@ describe("language picker keyboard support", () => {
 });
 
 describe("project intake feedback", () => {
+  // missing answers get focus, and a double submit builds one roadmap
   it("moves focus through steps, reports missing choices and creates only one roadmap", async () => {
     const { container } = render(React.createElement(IntakePage));
     const form = container.querySelector("form")!;

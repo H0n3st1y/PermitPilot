@@ -14,6 +14,7 @@ import {
   signUpWithEmail,
 } from "@/lib/supabase";
 
+// sample-account buttons up top, then the sign-in or sign-up form
 export default function LoginPage() {
   const router = useRouter();
   const { t } = useA11y();
@@ -28,32 +29,42 @@ export default function LoginPage() {
   const pendingRef = useRef(false);
   const [status, setStatus] = useState("");
 
+  // one sign-in at a time, with a status line while it runs
   async function runAuth(action: () => Promise<void>) {
+    // ignore a second click while the first attempt is still going
     if (pendingRef.current) return;
     pendingRef.current = true;
     setSubmitting(true);
     setError("");
     setStatus("Opening your workspace…");
+    // run it, or swap the status for a connection error
     try { await action(); }
     catch { setStatus(""); setError("We couldn't open your workspace. Check your connection and try again."); }
+    // always unlock the buttons, success or not
     finally { pendingRef.current = false; setSubmitting(false); }
   }
 
+  // demo judge sign-in, then home or the guided project tour
   async function handleSampleAccount(destination: "home" | "tour") {
     await runAuth(async () => {
       await signInAsDemoJudge();
       const { primary } = seedMockAccountWorkspace();
+      // home stays on the landing page; tour opens the sample graph
       router.push(destination === "home" ? "/" : `/projects/${primary.id}?tab=graph&tour=1`);
     });
   }
 
+  // email form: sign in or create the account, then open the workspace
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await runAuth(async () => {
+      // which call we make depends on the tab
       const result = mode === "login"
         ? await signInWithEmail(email, password)
         : await signUpWithEmail(name, email, password);
+      // a message like "check your email" stops here
       if (result.message) { setStatus(result.message); return; }
+      // no user means we stay on the form and show the error
       if (result.error || !result.user) {
         setStatus(""); setError(result.error ?? "Unable to sign in. Please try again."); return;
       }
@@ -100,6 +111,7 @@ export default function LoginPage() {
           </div>
         </section>
 
+        {/* alert only shows up when something failed */}
         {error ? <p className="bottleneck-flag mb-4" role="alert">{error}</p> : null}
         <p className="mb-3 text-sm text-[var(--muted)]" role="status">{status}</p>
         {/* Simple Sign In / Sign Up Card */}
@@ -108,6 +120,7 @@ export default function LoginPage() {
             <div>
               <p className="eyebrow">{t("login.yourAccount")}</p>
               <h2 className="mt-1 font-serif text-2xl text-[var(--navy)]">
+                {/* heading and the line under it follow the active tab */}
                 {mode === "login" ? t("login.signInTitle") : t("login.signUpTitle")}
               </h2>
               <p className="mt-1 text-sm text-[var(--muted)]">
@@ -117,8 +130,10 @@ export default function LoginPage() {
             <KeyRound className="text-[var(--navy)]" size={20} aria-hidden />
           </div>
 
+          {/* local or missing accounts get a warning; cloud does not */}
           {accountMode !== "cloud" ? (
             <p id="account-availability" className="panel-warn mt-4 rounded-[var(--radius-control)] border border-[var(--line)] p-3 text-sm">
+              {/* unavailable message, or the this-browser development note */}
               {accountUnavailable
                 ? ACCOUNT_UNAVAILABLE_MESSAGE
                 : "Development accounts stay in this browser. Use a test password; these accounts do not provide secure cloud access."}
@@ -127,9 +142,11 @@ export default function LoginPage() {
 
           <div className="mt-4 flex gap-2" role="tablist" aria-label={t("login.yourAccount")}
             onKeyDown={(event) => {
+              // arrows, home, and end move between the two tabs
               if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
               const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
               const current = tabs.indexOf(document.activeElement as HTMLButtonElement);
+              // home and end jump to the ends; arrows wrap
               const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (current + 1) % tabs.length;
               event.preventDefault(); tabs[next]?.focus(); tabs[next]?.click();
             }}>
@@ -143,6 +160,7 @@ export default function LoginPage() {
               disabled={submitting || accountUnavailable}
               className={`tab cursor-pointer ${mode === "login" ? "is-active" : ""}`}
               onClick={() => {
+                // switch to sign in and clear a leftover error
                 setMode("login");
                 setError("");
               }}
@@ -159,6 +177,7 @@ export default function LoginPage() {
               disabled={submitting || accountUnavailable}
               className={`tab cursor-pointer ${mode === "signup" ? "is-active" : ""}`}
               onClick={() => {
+                // switch to create account and clear a leftover error
                 setMode("signup");
                 setError("");
               }}
@@ -168,6 +187,7 @@ export default function LoginPage() {
           </div>
 
           <form id="login-auth-panel" role="tabpanel" aria-labelledby={`login-auth-${mode}`} aria-describedby={accountMode !== "cloud" ? "account-availability" : undefined} className="mt-5 space-y-4" onSubmit={handleSubmit}>
+            {/* name field only exists on the sign-up tab */}
             {mode === "signup" ? (
               <label className="field">
                 <span className="field-label">{t("home.yourName")}</span>
@@ -200,6 +220,7 @@ export default function LoginPage() {
 
             <label className="field">
               <span className="field-label">{t("home.password")}</span>
+              {/* new password when signing up, current password when signing in. sign-up asks for at least 6 characters */}
               <input
                 type="password"
                 autoComplete={mode === "signup" ? "new-password" : "current-password"}
@@ -215,6 +236,7 @@ export default function LoginPage() {
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
               <button type="submit" className="button primary cursor-pointer" disabled={submitting || accountUnavailable}>
+                {/* busy label, otherwise sign in or create account */}
                 {submitting ? "Opening workspace…" : mode === "login" ? t("home.tabSignIn") : t("home.createAccount")}
               </button>
               <button
@@ -230,6 +252,7 @@ export default function LoginPage() {
 
           <p className="mt-5 flex items-center gap-1.5 border-t border-[var(--line)] pt-3 text-xs text-[var(--muted)]">
             <CheckCircle2 size={14} className="text-[var(--ok)]" aria-hidden />
+            {/* cloud save note, or the reminder that this stays in the browser */}
             {accountMode === "cloud" ? t("login.savedNote") : "Sample changes stay in this browser. No account is required to explore."}
           </p>
         </section>

@@ -1,4 +1,4 @@
-/** The folded permit and upward route are shared by the app and install assets. */
+// folded permit mark, same shape the install icons use
 export function PermitPilotLogo({
   size = 36,
   wordmark = true,
@@ -17,6 +17,7 @@ export function PermitPilotLogo({
         <path d="M20 2v6a2 2 0 0 0 2 2h6L20 2Z" fill="var(--seal, #ad4f20)" />
         <path d="M10 24v-5a5 5 0 0 1 5-5h7m-4-4 4 4-4 4" stroke="var(--card, #fffcf6)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
+      {/* wordmark is optional so the mark can sit by itself */}
       {wordmark ? <span className="brand-logo-wordmark">PermitPilot</span> : null}
     </span>
   );

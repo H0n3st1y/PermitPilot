@@ -10,6 +10,7 @@ interface WorkerEvent {
   respondWith: (promise: Promise<Response>) => void;
 }
 
+// load the real service worker into a fake browser and return its hooks
 function worker() {
   const listeners: Record<string, (event: WorkerEvent) => void> = {};
   const addAll = vi.fn().mockResolvedValue(undefined);
@@ -34,6 +35,7 @@ function worker() {
     URL,
     Response,
   });
+  // fire one worker event and collect the promises it starts
   function dispatch(type: string, request?: WorkerEvent["request"], data?: WorkerEvent["data"]) {
     const promises: Promise<unknown>[] = [];
     const respondWith = vi.fn((promise: Promise<Response>) => { promises.push(promise); });
@@ -43,7 +45,9 @@ function worker() {
   return { addAll, deleteCache, match, fetchRequest, dispatch, skipWaiting };
 }
 
+// what the public cache installs, deletes, and refuses to intercept
 describe("service worker public cache policy", () => {
+  // skipWaiting only runs for the activate message
   it("does not activate a waiting update without an explicit supported message", async () => {
     const instance = worker();
     await instance.dispatch("install").done;
@@ -52,21 +56,25 @@ describe("service worker public cache policy", () => {
     await instance.dispatch("message", undefined, { type: "PERMITPILOT_ACTIVATE_UPDATE" }).done;
     expect(instance.skipWaiting).toHaveBeenCalledTimes(1);
   });
+  // install caches real public files, not the app shell
   it("precaches existing public assets, excluding app pages and personal data", async () => {
     const instance = worker();
     await instance.dispatch("install").done;
     const assets = instance.addAll.mock.calls[0][0] as string[];
     expect(assets).toContain("/offline.html");
     expect(assets).not.toContain("/");
+    // each cached path should be a file that actually exists
     for (const asset of assets) expect(readFileSync(resolve("public", `.${asset}`)).length).toBeGreaterThan(0);
   });
 
+  // old permitpilot caches go away, other apps' caches stay
   it("cleans up old PermitPilot caches without deleting other apps' caches", async () => {
     const instance = worker();
     await instance.dispatch("activate").done;
     expect(instance.deleteCache.mock.calls).toEqual([["permitpilot-v2"], ["permitpilot-public-v3"]]);
   });
 
+  // navigation uses the network, then the offline page if that fails
   it("uses the network for navigation and falls back to recovery on failure", async () => {
     const instance = worker();
     const request = { method: "GET", url: "https://permitpilot.example/dashboard/private-project", mode: "navigate" };
@@ -79,8 +87,10 @@ describe("service worker public cache policy", () => {
     expect(instance.match).toHaveBeenCalledWith("/offline.html");
   });
 
+  // these requests should pass through untouched
   it("does not intercept auth, API, documents, framework payloads, mutations or cross-origin traffic", () => {
     const instance = worker();
+    // each of these should be left alone
     for (const [method, url] of [
       ["GET", "https://permitpilot.example/api/project"],
       ["GET", "https://permitpilot.example/document.pdf"],

@@ -18,11 +18,14 @@ const baseConfig: ProjectConfig = {
   publicAttendance: false,
 };
 
+// step ids for the base kitchen plus any overrides
 function idsOf(config: Partial<ProjectConfig> = {}): string[] {
   return evaluateRules({ ...baseConfig, ...config }).steps.map((step) => step.id);
 }
 
+// which permits the rules pick for a given project
 describe("evaluateRules", () => {
+  // the same home kitchen always gets the same steps
   it("selects a deterministic home food-business roadmap", () => {
     const first = evaluateRules(baseConfig);
     const second = evaluateRules(baseConfig);
@@ -34,6 +37,7 @@ describe("evaluateRules", () => {
     expect(first.warnings.some((warning) => warning.includes("Home-based"))).toBe(true);
   });
 
+  // electrical, plumbing, and a waterfront zone add those reviews
   it("adds trade permits and waterfront conservation when those inputs match", () => {
     const ids = idsOf({
       trades: ["electrical", "plumbing"],
@@ -44,6 +48,7 @@ describe("evaluateRules", () => {
     expect(ids).toContain("conservation-review");
   });
 
+  // a room addition gets building close-out and skips health
   it("builds a construction roadmap with occupancy close-out", () => {
     const ids = idsOf({
       projectType: "room_addition",
@@ -62,6 +67,7 @@ describe("evaluateRules", () => {
     expect(ids).not.toContain("health-permit");
   });
 
+  // food at a public event pulls in a health permit
   it("adds health review when a public event serves food", () => {
     const ids = idsOf({
       projectType: "public_event",
@@ -80,6 +86,7 @@ describe("evaluateRules", () => {
     ]));
   });
 
+  // a barbershop gets health and a license, not a building permit
   it("builds a barbershop storefront without construction unless remodeling", () => {
     const ids = idsOf({
       projectType: "storefront_business",
@@ -97,6 +104,7 @@ describe("evaluateRules", () => {
     expect(ids).not.toContain("building-permit");
   });
 
+  // remodeling a nail salon adds construction on top of health
   it("adds construction when a nail salon is remodeling", () => {
     const ids = idsOf({
       projectType: "storefront_business",
@@ -111,6 +119,7 @@ describe("evaluateRules", () => {
     expect(ids).toContain("health-permit");
   });
 
+  // a restaurant always includes health
   it("gives a restaurant a health permit", () => {
     const ids = idsOf({
       projectType: "food_business",
@@ -122,6 +131,7 @@ describe("evaluateRules", () => {
     expect(ids).toContain("health-permit");
   });
 
+  // plain retail skips health and still gets a business license
   it("does not add health for retail without food or personal care", () => {
     const ids = idsOf({
       projectType: "storefront_business",
@@ -136,6 +146,7 @@ describe("evaluateRules", () => {
     expect(ids).toContain("business-license");
   });
 
+  // the homestead warning text follows the state
   it("uses a different homestead warning in Vermont than New Hampshire", () => {
     const nh = evaluateRules({ ...baseConfig, state: "NH" });
     const vt = evaluateRules({ ...baseConfig, state: "VT" });
@@ -143,6 +154,7 @@ describe("evaluateRules", () => {
     expect(vt.warnings.some((warning) => warning.includes("Vermont"))).toBe(true);
   });
 
+  // health and fire start together, the day zoning ends
   it("schedules parallel health and fire after zoning", () => {
     const result = evaluateRules(baseConfig, new Date("2026-09-14T12:00:00Z"));
     const byId = Object.fromEntries(result.steps.map((step) => [step.id, step]));
@@ -154,7 +166,9 @@ describe("evaluateRules", () => {
   });
 });
 
+// date math rejects a loop in the dependencies
 describe("scheduleSteps", () => {
+  // two steps that depend on each other should throw
   it("rejects circular dependencies", () => {
     const circular: PermitStep[] = [
       {
@@ -202,7 +216,9 @@ describe("scheduleSteps", () => {
   });
 });
 
+// fee lines follow the steps and the project numbers
 describe("calculateFees", () => {
+  // health, the home surcharge, electrical, and the tech fee all show up
   it("itemizes base fees and surcharges from project metadata", () => {
     const steps = evaluateRules({
       ...baseConfig,
@@ -217,6 +233,7 @@ describe("calculateFees", () => {
     expect(fees.baseFees + fees.surcharges).toBeCloseTo(fees.total, 2);
   });
 
+  // a bigger valuation makes the building permit cost more
   it("scales the building permit with valuation", () => {
     const construction: ProjectConfig = {
       ...baseConfig,
@@ -236,9 +253,12 @@ describe("calculateFees", () => {
   });
 });
 
+// stale reviews and steps waiting on earlier ones
 describe("detectBottlenecks", () => {
+  // health has been in review too long, and the license is still blocked
   it("flags stale in-review steps and blocked dependents", () => {
     const evaluated = evaluateRules(baseConfig, new Date("2026-09-14T12:00:00Z"));
+    // pretend zoning is done and health has been sitting since September 1
     const steps = evaluated.steps.map((step) => {
       if (step.id === "health-permit") {
         return {

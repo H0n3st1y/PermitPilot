@@ -191,9 +191,11 @@ export const CITATIONS: Record<string, CodeCitation> = {
   },
 };
 
+// Look up each id. A missing one means a fixture is wrong, so we stop.
 export function citationsFor(ids: string[]): CodeCitation[] {
   return ids.map((id) => {
     const citation = CITATIONS[id];
+    // Unknown ids should fail loudly instead of dropping out of the list
     if (!citation) {
       throw new Error(`Unknown citation id: ${id}`);
     }

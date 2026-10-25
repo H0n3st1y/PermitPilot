@@ -53,8 +53,10 @@ export const US_STATES: { code: string; name: string }[] = [
   { code: "WY", name: "Wyoming" },
 ];
 
+// What the form uses before the user picks a state
 export const DEFAULT_STATE = "NH";
 
+// Full name for a state code. Anything we do not know stays New Hampshire.
 export function stateName(code: string | undefined): string {
   return US_STATES.find((item) => item.code === code)?.name ?? "New Hampshire";
 }

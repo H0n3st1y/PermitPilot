@@ -10,10 +10,13 @@ import type { UploadedDocument } from "@/lib/types";
 
 vi.mock("@/lib/a11y", () => ({ useA11y: () => ({ plainLanguage: false }) }));
 beforeEach(() => { vi.stubGlobal("React", React); });
+// unmount and put file-reader mocks back
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
+// an aborted read can be retried with the same file
 it("recovers an interrupted file read by retrying the same selected file, with focus on recovery", async () => {
   const onUpload = vi.fn();
+  // the first read is interrupted
   const read = vi.spyOn(FileReader.prototype, "readAsDataURL").mockImplementationOnce(function (this: FileReader) {
     this.dispatchEvent(new ProgressEvent("abort"));
   });
@@ -30,10 +33,12 @@ it("recovers an interrupted file read by retrying the same selected file, with f
   expect(document.activeElement?.getAttribute("aria-label")).toMatch(/(Upload|Replace) file for/);
 });
 
+// a failed replacement leaves the original file in place
 it("keeps the previous attachment when replacement storage fails and allows retry", async () => {
   const project = sampleProject();
   const step = project.roadmap.steps.find((item) => item.documents.length)!;
   project.documents = [{ id: "kept", stepId: step.id, requirementId: step.documents[0].id, name: "keep-original.pdf", mimeType: "application/pdf", size: 20, uploadedAt: "2026-10-24T10:00:00Z", verified: false }];
+  // first save throws, like a full browser storage
   const onUpload = vi.fn().mockImplementationOnce(() => { throw new Error("Quota exceeded"); });
   render(React.createElement(DocumentVault, { project, onUpload, onRemove: vi.fn() }));
   fireEvent.change(screen.getAllByLabelText(/Choose a file for/)[0], { target: { files: [new File([new Uint8Array(450 * 1024)], "replacement.pdf", { type: "application/pdf" })] } });
@@ -46,6 +51,7 @@ it("keeps the previous attachment when replacement storage fails and allows retr
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
+// a slow read should call the upload handler from the latest render
 it("uses the latest upload callback after a file read spans a parent update", async () => {
   const project = sampleProject();
   const readers: FileReader[] = [];
@@ -65,10 +71,12 @@ it("uses the latest upload callback after a file read spans a parent update", as
   expect(currentUpload.mock.calls[0][0].name).toBe("pending.pdf");
 });
 
+// undo puts the removed file, including its preview, back
 it("undoes removal using the original attachment including its saved preview", async () => {
   const project = sampleProject();
   const step = project.roadmap.steps.find((item) => item.documents.length)!;
   const original: UploadedDocument = { id: "restore-original", stepId: step.id, requirementId: step.documents[0].id, name: "floor-plan.pdf", mimeType: "application/pdf", size: 12, uploadedAt: "2026-10-24T10:00:00Z", verified: false, dataUrl: "data:application/pdf;base64,AA==" };
+  // tiny parent so remove and undo update the document list
   function Harness() {
     const [documents, setDocuments] = useState([original]);
     return React.createElement(DocumentVault, { project: { ...project, documents }, onRemove: (id: string) => setDocuments((docs) => docs.filter((doc) => doc.id !== id)), onUpload: (doc: UploadedDocument) => setDocuments((docs) => [...docs, doc]) });
@@ -83,6 +91,7 @@ it("undoes removal using the original attachment including its saved preview", a
   expect(screen.getAllByRole("status").some((node) => node.textContent === "floor-plan.pdf restored.")).toBe(true);
 });
 
+// the total shows up before the itemized base fees
 it("leads fees with the calculated estimate before long itemized details", () => {
   const project = sampleProject();
   render(React.createElement(FeeSummary, { fees: project.fees, config: project.config }));
@@ -92,7 +101,9 @@ it("leads fees with the calculated estimate before long itemized details", () =>
   expect(Number(total.nextElementSibling?.textContent?.replace(/[^\d.]/g, ""))).toBeCloseTo(project.fees.total, 2);
 });
 
+// continue checklist focuses the next box and does not check it
 it("jumps to the next unchecked inspection requirement without changing its completion", () => {
+  // only the first inspection item starts checked
   const items = sampleProject().inspections.map((item, index) => ({ ...item, completed: index === 0 }));
   const onToggle = vi.fn();
   const scroll = vi.fn();

@@ -4,18 +4,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { PwaControls } from "./PwaControls";
 
+// a fake service worker registration, with an optional waiting worker
 function registration(waiting: { postMessage: ReturnType<typeof vi.fn> } | null = null) {
   return Object.assign(new EventTarget(), { waiting, installing: null });
 }
 
+// not installed, and sitting on the home path
 beforeEach(() => {
   vi.stubGlobal("React", React);
   vi.stubGlobal("matchMedia", () => Object.assign(new EventTarget(), { matches: false }));
   window.history.replaceState(null, "", "/");
 });
+// drop the fake service worker and any stubbed timers
 afterEach(() => { cleanup(); Reflect.deleteProperty(navigator, "serviceWorker"); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe("optional PWA controls", () => {
+  // without a prompt, the panel shows manual install steps
   it("offers honest manual instructions without inventing installation support", () => {
     render(React.createElement(PwaControls));
     expect(screen.getByText(/open this page in Safari/)).toBeTruthy();
@@ -29,6 +33,7 @@ describe("optional PWA controls", () => {
     expect(document.activeElement).toBe(summary);
   });
 
+  // the browser prompt can be used once, including a dismissal
   it("uses a provided prompt once and keeps dismissal recoverable", async () => {
     render(React.createElement(PwaControls));
     const prompt = vi.fn().mockResolvedValue(undefined);
@@ -50,6 +55,7 @@ describe("optional PWA controls", () => {
     expect(screen.queryByRole("button", { name: "Install PermitPilot" })).toBeNull();
   });
 
+  // a standalone display mode is treated as already installed
   it("recognizes standalone presentation without offering installation again", () => {
     vi.stubGlobal("matchMedia", () => Object.assign(new EventTarget(), { matches: true }));
     render(React.createElement(PwaControls));
@@ -58,6 +64,7 @@ describe("optional PWA controls", () => {
     expect(screen.queryByText(/open this page in Safari/)).toBeNull();
   });
 
+  // appinstalled in a normal tab is not the same as a standalone window
   it("does not call an installed browser tab a standalone app window", () => {
     render(React.createElement(PwaControls));
     act(() => { window.dispatchEvent(new Event("appinstalled")); });
@@ -66,6 +73,7 @@ describe("optional PWA controls", () => {
     expect(screen.queryByText("PermitPilot is running in its own app window.")).toBeNull();
   });
 
+  // an update waits during intake and only posts once they leave
   it("keeps an update waiting in intake and applies it only after a safe explicit action", async () => {
     const postMessage = vi.fn();
     const registered = registration({ postMessage });

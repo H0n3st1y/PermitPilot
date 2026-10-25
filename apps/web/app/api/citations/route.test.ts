@@ -1,19 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// supabase client mock we can steer from each test
 const cloud = vi.hoisted(() => ({ getUser: vi.fn(), createClient: vi.fn() }));
 vi.mock("@supabase/supabase-js", () => ({ createClient: cloud.createClient }));
 vi.mock("@/lib/legalSources", () => ({ loadJurisdictionExcerpts: () => "Published fixture excerpt" }));
 
+// a normal explain request for the health permit
 const payload = {
   action: "explain", config: { projectType: "food_business", state: "NH", squareFootage: 420 },
   stepIds: ["health-permit"], stepTitle: "Health permit", citationQuote: "Provide a handwashing sink.",
 };
+// post helper, with an optional bearer token
 const request = (body: unknown = payload, token?: string) => new Request("http://localhost/api/citations", {
   method: "POST", headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
   body: typeof body === "string" ? body : JSON.stringify(body),
 });
 const fetchMock = vi.fn();
 
+// fresh module, no api key, and a signed-in cloud user
 beforeEach(() => {
   vi.resetModules(); vi.clearAllMocks();
   vi.stubEnv("ANTHROPIC_API_KEY", "");
@@ -24,9 +28,11 @@ beforeEach(() => {
   fetchMock.mockImplementation(async () => Response.json({ content: [{ type: "text", text: "Explanation from published fixture." }] }));
   vi.stubGlobal("fetch", fetchMock);
 });
+// put envs, globals, and mocks back
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe("citation service access and request bounds", () => {
+  // no key stays local and never calls cloud auth or the model
   it("keeps no-key local guidance available without cloud authentication or a paid request", async () => {
     const { POST } = await import("./route");
     const response = await POST(request());
@@ -37,6 +43,7 @@ describe("citation service access and request bounds", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  // a missing or bad token must not spend the model key
   it("does not spend a configured model key for missing or invalid cloud tokens", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "server-secret");
     const { POST } = await import("./route");
@@ -47,6 +54,7 @@ describe("citation service access and request bounds", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  // a real token is checked, then the model call is bounded
   it("validates the actual cloud token before a bounded model request", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "server-secret");
     const { POST } = await import("./route");
@@ -60,10 +68,12 @@ describe("citation service access and request bounds", () => {
     expect(options.signal).toBeInstanceOf(AbortSignal);
   });
 
+  // ten calls succeed, the next waits, and the window can recover
   it("limits verified users per process and allows recovery after the quota window", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "server-secret");
     const now = vi.spyOn(Date, "now").mockReturnValue(100_000);
     const { POST } = await import("./route");
+    // the first ten requests in the window are allowed
     for (let count = 0; count < 10; count++) expect((await POST(request(payload, "valid-session"))).status).toBe(200);
     const limited = await POST(request(payload, "valid-session"));
     expect(limited.status).toBe(429);
@@ -74,6 +84,7 @@ describe("citation service access and request bounds", () => {
     expect(fetchMock).toHaveBeenCalledTimes(11);
   });
 
+  // a huge body is rejected even when content-length is missing
   it("rejects an oversized actual body even without a Content-Length header", async () => {
     const { POST } = await import("./route");
     const oversized = request({ ...payload, extra: "x".repeat(33_000) });
@@ -83,6 +94,7 @@ describe("citation service access and request bounds", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  // bad json, too many steps, and a path-like state never reach the model
   it("rejects malformed JSON, oversized collections and invalid state paths before filesystem or model work", async () => {
     const { POST } = await import("./route");
     expect((await POST(request("{"))).status).toBe(400);
@@ -91,6 +103,7 @@ describe("citation service access and request bounds", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  // keep only citations for requested steps and safe http links
   it("drops model citations outside the requested steps and unsafe source links", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "server-secret");
     const valid = { stepId: "health-permit", code: "Test", title: "Published code", quote: "Excerpt", url: "https://example.gov/code" };

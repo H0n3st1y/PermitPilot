@@ -32,15 +32,19 @@ export function createProjectFromConfig(config: ProjectConfig, now = new Date())
 
 // first start to last end so the banner can say how long it looks
 function scheduledSpanDays(steps: PermitStep[]): number {
+  // empty plan is zero days
   if (steps.length === 0) return 0;
+  // earliest start among the steps
   const start = steps.reduce(
     (earliest, step) => (step.estimatedStartDate < earliest ? step.estimatedStartDate : earliest),
     steps[0].estimatedStartDate,
   );
+  // latest end among the steps
   const end = steps.reduce(
     (latest, step) => (step.estimatedEndDate > latest ? step.estimatedEndDate : latest),
     steps[0].estimatedEndDate,
   );
+  // at least one day even if start and end land on the same date
   return Math.max(1, differenceInCalendarDays(parseISODate(end), parseISODate(start)));
 }
 

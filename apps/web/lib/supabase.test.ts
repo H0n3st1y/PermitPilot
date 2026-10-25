@@ -3,14 +3,18 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
 const cloud = vi.hoisted(() => ({ signUp: vi.fn(), signInWithPassword: vi.fn(), signOut: vi.fn() }));
 vi.mock("@supabase/supabase-js", () => ({ createClient: () => ({ auth: cloud }) }));
+// fresh module and a pretend supabase env before each test
 beforeEach(() => {
   vi.resetModules(); vi.clearAllMocks(); localStorage.clear();
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://test.supabase.co");
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "test-key");
 });
+// drop the stubbed env when the test ends
 afterEach(() => vi.unstubAllEnvs());
 
+// sign-up, sign-in, and sign-out stay honest about what actually happened
 describe("authentication truthfulness", () => {
+  // a cloud error does not create a browser account
   it("returns cloud sign-up errors without creating a local account", async () => {
     cloud.signUp.mockResolvedValue({ data: {}, error: { message: "Signups disabled" } });
     const auth = await import("@/lib/supabase");
@@ -19,6 +23,7 @@ describe("authentication truthfulness", () => {
     expect(auth.getCurrentUser()).toBeNull();
   });
 
+  // no session yet means we ask them to confirm email
   it("asks for email confirmation without claiming a signed-in session", async () => {
     cloud.signUp.mockResolvedValue({ data: { user: { id: "user", email: "test@example.com" }, session: null }, error: null });
     const auth = await import("@/lib/supabase");
@@ -27,6 +32,7 @@ describe("authentication truthfulness", () => {
     expect(result.user).toBeNull(); expect(auth.getCurrentUser()).toBeNull();
   });
 
+  // signing up again with a different password does not replace the account
   it("requires a password to access an existing local account", async () => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
     const auth = await import("@/lib/supabase");
@@ -38,6 +44,7 @@ describe("authentication truthfulness", () => {
     expect(auth.getCurrentUser()).toBeNull();
   });
 
+  // a failed cloud sign-out leaves the stored user in place
   it("keeps a failed sign-out recoverable without silently clearing the session", async () => {
     localStorage.setItem("permitpilot:auth:user", JSON.stringify({ id: "user", mode: "supabase" }));
     cloud.signOut.mockResolvedValue({ error: { message: "Network unavailable" } });
@@ -46,6 +53,7 @@ describe("authentication truthfulness", () => {
     expect(auth.getCurrentUser()?.id).toBe("user");
   });
 
+  // the demo judge stays a local session and never calls cloud sign-in
   it("labels the sample fallback as local when cloud authentication fails", async () => {
     cloud.signInWithPassword.mockResolvedValue({ data: {}, error: { message: "Not found" } });
     const auth = await import("@/lib/supabase");
@@ -53,6 +61,7 @@ describe("authentication truthfulness", () => {
     expect(cloud.signInWithPassword).not.toHaveBeenCalled();
   });
 
+  // production with no supabase url refuses to store a password
   it("does not create a browser password account in an unconfigured production installation", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
@@ -64,6 +73,7 @@ describe("authentication truthfulness", () => {
     expect(auth.getCurrentUser()).toBeNull();
   });
 
+  // old local passwords don't work in production, but the demo judge still can
   it("rejects legacy local password login and sessions in production while keeping the sample usable", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
@@ -80,6 +90,7 @@ describe("authentication truthfulness", () => {
     expect(auth.getCurrentUser()?.id).toBe(sample.id);
   });
 
+  // a configured production install still signs in through supabase
   it("continues to authenticate configured production accounts through Supabase", async () => {
     vi.stubEnv("NODE_ENV", "production");
     cloud.signInWithPassword.mockResolvedValue({ data: { user: { id: "real", email: "test@example.com" } }, error: null });
@@ -89,6 +100,7 @@ describe("authentication truthfulness", () => {
     expect(localStorage.getItem("permitpilot:auth:accounts")).toBeNull();
   });
 
+  // a broken url and plain http both count as unavailable in production
   it("treats malformed and insecure production cloud configuration as unavailable", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "not a URL");

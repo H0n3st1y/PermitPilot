@@ -17,6 +17,7 @@ import {
   type Project,
 } from "@/lib/types";
 
+// checklist of steps plus a details panel of the project facts
 export function RoadmapOverview({
   project,
   bottlenecks,
@@ -26,6 +27,7 @@ export function RoadmapOverview({
 }) {
   const { plainLanguage } = useA11y();
   const occupantLoad = estimateOccupantLoad(project.config.squareFootage, project.config.occupancy);
+  // how many steps they have marked approved
   const approved = project.roadmap.steps.filter((step) => step.status === "approved").length;
   const total = project.roadmap.steps.length;
 
@@ -40,13 +42,16 @@ export function RoadmapOverview({
             </h2>
           </div>
           <p className="text-sm text-[var(--muted)]">
+            {/* count when there are steps, otherwise say none were generated */}
             {total > 0 ? `${approved} of ${total} steps approved` : "No steps generated"}
           </p>
         </div>
+        {/* a card per step, or the empty-roadmap note */}
         {total > 0 ? (
           <ol className="space-y-3">
             {project.roadmap.steps.map((step) => {
               const docs = stepDocumentProgress(project, step);
+              // warnings that belong to this step
               const stepBottlenecks = bottlenecks.filter((item) => item.stepId === step.id);
               return (
                 <li key={step.id} className="panel roadmap-step-card">
@@ -60,12 +65,14 @@ export function RoadmapOverview({
                     </div>
                     <StatusBadge status={step.status} />
                   </div>
+                  {/* plain wording, or the longer why-required text */}
                   <p className="mt-2 text-[var(--ink)]">{plainLanguage ? step.plainLanguage : step.whyRequired}</p>
                   <p className="roadmap-step-meta mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-[var(--muted)]">
                     <span className="inline-flex items-center gap-1.5">
                       <Clock size={15} aria-hidden />
                       {step.estimatedMinDays}–{step.estimatedMaxDays} business days
                     </span>
+                    {/* document progress only when this step asks for files */}
                     {docs.required > 0 ? (
                       docs.done ? (
                         <span className="inline-flex items-center gap-1 text-[var(--ok)]">
@@ -77,12 +84,15 @@ export function RoadmapOverview({
                       )
                     ) : null}
                   </p>
+                  {/* each bottleneck for this step */}
                   {stepBottlenecks.map((bottleneck) => (
                     <p key={`${bottleneck.stepId}-${bottleneck.kind}`} className="bottleneck-flag mt-3">
                       <AlertTriangle size={16} aria-hidden />
+                      {/* plain text for plain language or a critical-path delay */}
                       {plainLanguage || bottleneck.kind === "critical_path_delay" ? bottleneck.plainLanguage : bottleneck.message}
                     </p>
                   ))}
+                  {/* citation chips when the step has sources */}
                   {step.citations.length > 0 ? (
                     <ul className="mt-3 flex flex-wrap gap-2" aria-label={`Sources for ${step.title}`}>
                       {step.citations.map((citation) => (
@@ -108,6 +118,7 @@ export function RoadmapOverview({
         <summary>
           <span className="font-serif text-xl text-[var(--navy)]">Project details</span>
           <span className="mt-1 block text-sm text-[var(--muted)]">Space, zoning, trades and planning estimates</span>
+          {/* note count on the summary when there are warnings */}
           {project.roadmap.warnings.length > 0 ? <span className="project-details-note-count">{project.roadmap.warnings.length} planning {project.roadmap.warnings.length === 1 ? "note" : "notes"}</span> : null}
         </summary>
         <p className="mt-4 break-words font-semibold text-[var(--navy)]">{project.config.name}</p>
@@ -120,9 +131,11 @@ export function RoadmapOverview({
           <Fact label="Zoning district" value={ZONE_LABELS[project.config.zone]} />
           <Fact label="Estimated valuation" value={`$${project.config.estimatedValuation.toLocaleString()}`} />
           <Fact label="Trades" value={project.config.trades.length ? project.config.trades.map((trade) => TRADE_LABELS[trade]).join(", ") : "None selected"} />
+          {/* earliest start through the latest estimated end */}
           <Fact label="Planning range" value={total > 0 ? `${formatShortDate(project.roadmap.steps[0]?.estimatedStartDate ?? "")} – ${formatShortDate([...project.roadmap.steps].sort((a, b) => b.estimatedEndDate.localeCompare(a.estimatedEndDate))[0]?.estimatedEndDate ?? "")}` : "No dates estimated yet"} />
           <Fact label="Steps approved" value={`${approved} of ${total}`} />
         </dl>
+        {/* planning notes under the facts */}
         {project.roadmap.warnings.length > 0 ? (
           <div className="mt-4">
             <p className="text-sm font-semibold text-[var(--navy)]">Planning notes</p>
@@ -141,6 +154,7 @@ export function RoadmapOverview({
   );
 }
 
+// one label and value in the project facts list
 function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div>

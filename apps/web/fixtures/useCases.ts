@@ -1,5 +1,6 @@
 import { PROJECT_TYPE_LABELS, type OccupancyGroup, type ProjectConfig, type ProjectType, type Trade } from "@/lib/types";
 
+// One intake card: the label plus the flags the rules check
 export interface UseCaseDefinition {
   id: string;
   group: string;
@@ -15,6 +16,7 @@ export interface UseCaseDefinition {
   suggestedTrades: Trade[];
 }
 
+// Section titles on the intake page
 export const USE_CASE_GROUPS = [
   "Food",
   "Personal care",
@@ -195,14 +197,17 @@ export const USE_CASES: UseCaseDefinition[] = [
   },
 ];
 
+// Card id to label, so later screens can show the name
 export const USE_CASE_LABELS: Record<string, string> = Object.fromEntries(
   USE_CASES.map((item) => [item.id, item.label]),
 );
 
+// Find a card by id. A blank or unknown id comes back undefined.
 export function findUseCase(id: string | undefined): UseCaseDefinition | undefined {
   return USE_CASES.find((item) => item.id === id);
 }
 
+// Copy the chosen card onto the project the user is filling in
 export function applyUseCase(current: ProjectConfig, useCase: UseCaseDefinition): ProjectConfig {
   // flipping the card fills in the flags the rules look at
   return {
@@ -219,7 +224,9 @@ export function applyUseCase(current: ProjectConfig, useCase: UseCaseDefinition)
   };
 }
 
+// Prefer the card name. If there is no card, use the project type label.
 export function displayProjectKind(config: ProjectConfig): string {
+  // A selected card has a friendlier name than the raw type
   if (config.useCase && USE_CASE_LABELS[config.useCase]) {
     return USE_CASE_LABELS[config.useCase];
   }

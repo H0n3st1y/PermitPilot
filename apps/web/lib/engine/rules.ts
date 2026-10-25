@@ -23,10 +23,13 @@ export function estimateOccupantLoad(
   occupancy: OccupancyGroup,
 ): number {
   const factor = OCCUPANT_LOAD_FACTORS[occupancy]?.factor ?? 150;
+  // no space means nobody
   if (squareFootage <= 0) return 0;
+  // at least one person once there's any area
   return Math.max(1, Math.ceil(squareFootage / factor));
 }
 
+// copy the intake answers and fill the defaults the rules read
 export function buildEvaluationContext(config: ProjectConfig): Record<string, unknown> {
   return {
     ...config,
@@ -51,23 +54,29 @@ export function evaluateRules(
 
   // higher priority rules go first
   const orderedRules = [...RULES].sort((a, b) => {
+    // priority wins, then id so ties stay stable
     if (b.priority !== a.priority) return b.priority - a.priority;
     return a.id.localeCompare(b.id);
   });
 
+  // try the rules in that order
   for (const rule of orderedRules) {
     const state = String(context.state ?? "NH");
     // skip rules that are for a different state
     if (rule.states?.length && !rule.states.includes(state)) continue;
     const [matched, conditions] = evaluateCondition(rule.conditions, context);
+    // this rule's conditions didn't hit
     if (!matched) continue;
 
+    // collect each warning once
     for (const warning of rule.actions.addWarnings) {
       if (!warnings.includes(warning)) warnings.push(warning);
     }
 
+    // add each step this rule asks for
     for (const stepId of rule.actions.addSteps) {
       const definition = STEP_DEFINITIONS[stepId];
+      // the rule named a step we don't have
       if (!definition) {
         throw new Error(`Unknown step id in rule ${rule.id}: ${stepId}`);
       }
@@ -89,6 +98,7 @@ export function evaluateRules(
     const definition = STEP_DEFINITIONS[step.id];
     // drop deps we didnt actually pick
     const presentDependencies = step.dependencies.filter((id) => selectedIds.has(id));
+    // if nothing is left, hang the step off zoning when zoning is in the plan
     const dependencies =
       presentDependencies.length > 0
         ? presentDependencies
@@ -100,6 +110,7 @@ export function evaluateRules(
     return {
       ...step,
       dependencies,
+      // only keep parallel links that are also selected
       parallelWith: step.parallelWith.filter((id) => selectedIds.has(id)),
     };
   });

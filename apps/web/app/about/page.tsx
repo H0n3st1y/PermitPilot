@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { useA11y } from "@/lib/a11y";
 
+// static methodology page
 export default function AboutPage() {
   // methodology page so we dont pretend this is real law
   const { t } = useA11y();

@@ -13,6 +13,7 @@ import { signOutPermitPilot, useAuth } from "@/lib/supabase";
 import { requestProductTour } from "@/lib/tour";
 import { PermitPilotLogo } from "@/components/brand/PermitPilotLogo";
 
+// header, skip link, and the menu around every page
 export function AppShell({
   children,
   eyebrow,
@@ -34,22 +35,27 @@ export function AppShell({
   const signOutPending = useRef(false);
   // little blink when a project saves
 
+  // flash the saved icon after a cloud sync
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
     const onSync = (event: Event) => {
+      // only cloud saves get the blink
       if ((event as CustomEvent<{ source: string }>).detail?.source !== "supabase") return;
       setSyncPulse(true);
       clearTimeout(timer);
       timer = setTimeout(() => setSyncPulse(false), 1800);
     };
     window.addEventListener(DB_SYNC_EVENT, onSync);
+    // remove the listener and any pending blink
     return () => {
       window.removeEventListener(DB_SYNC_EVENT, onSync);
       clearTimeout(timer);
     };
   }, []);
 
+  // sign out of this device and say whether it worked
   async function handleSignOut() {
+    // ignore a second click while the first sign-out is running
     if (signOutPending.current) return;
     signOutPending.current = true;
     setSigningOut(true);
@@ -60,13 +66,16 @@ export function AppShell({
     } catch {
       setSessionMessage("Could not sign out. Please try again.");
     } finally {
+      // unlock the button either way
       signOutPending.current = false;
       setSigningOut(false);
     }
   }
 
+  // close the menu, then start the tour here or open the demo
   function handleGuideClick() {
     setMenuOpen(false);
+    // already on a project, so start the tour in place
     if (pathname?.startsWith("/projects/")) {
       requestProductTour();
       return;
@@ -74,11 +83,13 @@ export function AppShell({
     router.push("/demo?tour=1");
   }
 
+  // landing pages get an extra class for the marketing layout
   return (
     <div className={`app-shell min-h-screen${variant === "landing" ? " landing-shell" : ""}`}>
       <a href="#main" className="skip-link">
         {t("nav.skip")}
       </a>
+      {/* landing uses its own demo line; other pages use the default */}
       <DemoNotice text={variant === "landing" ? t("landing.demoNotice") : undefined} />
       <header className="border-b border-[var(--line)] bg-[var(--card)]">
         <div className="app-header-inner mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
@@ -86,12 +97,14 @@ export function AppShell({
             <Link href="/" className="brand shrink-0" aria-label="PermitPilot home">
               <PermitPilotLogo decorative />
             </Link>
+            {/* screen-reader label when the page passed one */}
             {eyebrow ? (
               <p className="sr-only">
                 {eyebrow}
               </p>
             ) : null}
           </div>
+          {/* in-page links only on the landing header */}
           {variant === "landing" ? (
             <nav className="landing-header-links" aria-label="On this page">
               <a href="#benefits" className="nav-link">{t("landing.navBenefits")}</a>
@@ -103,7 +116,9 @@ export function AppShell({
             Menu
           </button>
           <nav id="primary-navigation" className={`app-navigation ${menuOpen ? "is-open" : ""}`} aria-label="Primary" onKeyDown={(event) => {
+            // let the language list handle its own keys
             if ((event.target as HTMLElement).closest('[role="listbox"]')) return;
+            // escape closes the phone menu and focuses the button
             if (event.key === "Escape" && menuOpen) {
               setMenuOpen(false);
               menuButton.current?.focus();
@@ -129,12 +144,14 @@ export function AppShell({
             </button>
             <PwaControls />
             <A11yControls />
+            {/* signed-in chip, or the sign-in link */}
             {user ? (
               <div className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-[var(--line)] bg-[var(--paper)] px-3 py-1 text-xs font-semibold text-[var(--navy)] whitespace-nowrap">
                 <UserCheck size={14} className="text-[var(--ok)] shrink-0" aria-hidden />
                 <span className="max-w-[8.5rem] truncate" title={user.email}>
                   {user.name}
                 </span>
+                {/* brief saved icon after a cloud sync */}
                 {syncPulse ? (
                   <span
                     className="inline-flex items-center gap-1 text-[var(--ok)]"
@@ -164,6 +181,7 @@ export function AppShell({
           </nav>
         </div>
       </header>
+      {/* visible status when there is a message, otherwise keep the live region */}
       <div role="status" className={sessionMessage ? "mx-auto max-w-6xl px-4 pt-3 text-sm" : "sr-only"}>{sessionMessage}</div>
       {children}
     </div>

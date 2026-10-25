@@ -14,6 +14,7 @@ export function FeeSummary({
   config: ProjectConfig;
 }) {
   const { plainLanguage } = useA11y();
+  // split the lines into base fees and surcharges
   const baseItems = fees.lineItems.filter((item) => item.kind === "base");
   const surchargeItems = fees.lineItems.filter((item) => item.kind === "surcharge");
 
@@ -22,6 +23,7 @@ export function FeeSummary({
       <p className="eyebrow">Fee estimate</p>
       <h2 className="font-serif text-2xl text-[var(--navy)]">Itemized municipal costs</h2>
       <p className="mt-2 text-[var(--muted)]">
+        {/* shorter sentence in plain language, otherwise the calculated-from line */}
         {plainLanguage
           ? `These numbers are a planning estimate from your ${config.squareFootage} sq ft ${PROJECT_TYPE_LABELS[config.projectType].toLowerCase()} and $${config.estimatedValuation.toLocaleString()} valuation. They are not a bill.`
           : `Calculated from ${config.squareFootage.toLocaleString()} sq ft, ${PROJECT_TYPE_LABELS[config.projectType].toLowerCase()}, and estimated valuation of ${formatCurrency(config.estimatedValuation)}. Demonstration rates only.`}
@@ -44,6 +46,7 @@ export function FeeSummary({
       <FeeTable caption="Base departmental fees" items={baseItems} />
       <FeeTable caption="Surcharges" items={surchargeItems} />
       <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-[var(--muted)]">
+        {/* each planning note under the tables */}
         {fees.notes.map((note) => (
           <li key={note}>{note}</li>
         ))}
@@ -52,6 +55,7 @@ export function FeeSummary({
   );
 }
 
+// phone list or a table, depending on the width
 function FeeTable({
   caption,
   items,
@@ -59,12 +63,14 @@ function FeeTable({
   caption: string;
   items: FeeBreakdown["lineItems"];
 }) {
+  // nothing to show for an empty group
   if (items.length === 0) return null;
   return (
     <div className="mt-4 min-w-0">
       <div className="sm:hidden">
         <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">{caption}</h3>
         <dl className="space-y-2">
+          {/* stacked cards for a narrow screen */}
           {items.map((item) => <div key={item.id} className="rounded-lg border border-[var(--line)] bg-[var(--paper)] p-3"><dt className="break-words font-semibold text-[var(--navy)]">{item.label}</dt><dd className="mt-1 break-words text-sm text-[var(--muted)]">{item.department} · {item.basis}</dd><dd className="mt-2 font-semibold"><span className="sr-only">Amount: </span>{formatCurrency(item.amount)}</dd></div>)}
         </dl>
       </div>
@@ -83,6 +89,7 @@ function FeeTable({
           </tr>
         </thead>
         <tbody>
+          {/* one row per fee on a wider screen */}
           {items.map((item) => (
             <tr key={item.id}>
               <th scope="row">{item.label}</th>

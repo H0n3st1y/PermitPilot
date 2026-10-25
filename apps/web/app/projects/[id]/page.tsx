@@ -3,6 +3,7 @@
 import { use } from "react";
 import { ProjectDashboard } from "@/components/project/ProjectDashboard";
 
+// pull the id and query out of the promises, then render the dashboard
 export default function ProjectPage({
   params,
   searchParams,

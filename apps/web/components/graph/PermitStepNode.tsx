@@ -16,6 +16,7 @@ export type PermitNodeData = {
 
 export type PermitFlowNode = Node<PermitNodeData, "permit">;
 
+// one box on the graph: department, title, and status
 function PermitStepNodeComponent({ data }: NodeProps<PermitFlowNode>) {
   return (
     <div
@@ -37,4 +38,5 @@ function PermitStepNodeComponent({ data }: NodeProps<PermitFlowNode>) {
   );
 }
 
+// memo so panning the canvas does not redraw every box
 export const PermitStepNode = memo(PermitStepNodeComponent);

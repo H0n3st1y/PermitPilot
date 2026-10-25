@@ -16,7 +16,9 @@ const config: ProjectConfig = {
   publicAttendance: false,
 };
 
+// column ranks and x/y positions for the permit graph
 describe("graphLayout", () => {
+  // zoning sits left of health, which sits left of the business license
   it("places zoning before later food-business steps", () => {
     const steps = evaluateRules(config).steps;
     const ranks = rankSteps(steps);
@@ -25,6 +27,7 @@ describe("graphLayout", () => {
     expect(ranks.get("business-license")).toBeGreaterThan(ranks.get("health-permit") ?? 0);
   });
 
+  // every step gets its own point
   it("assigns unique coordinates for every step", () => {
     const steps = evaluateRules(config).steps;
     const positions = layoutPermitGraph(steps);

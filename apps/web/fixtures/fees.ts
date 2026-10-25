@@ -1,3 +1,4 @@
+// Demo prices and rates the fee calculator reads
 export const FEE_SCHEDULE = {
   buildingPermitBase: 75,
   buildingPermitPerThousand: 12,
@@ -25,6 +26,7 @@ export const FEE_SCHEDULE = {
   stateSurchargePerPermit: 4.5,
 } as const;
 
+// Square feet per person, by occupancy, for the occupant-load estimate
 export const OCCUPANT_LOAD_FACTORS: Record<string, { factor: number; basis: string }> = {
   residential: { factor: 200, basis: "IBC Table 1004.5 residential" },
   business: { factor: 150, basis: "IBC Table 1004.5 business" },

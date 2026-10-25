@@ -5,7 +5,9 @@ import {
   tourHoleFromRect,
 } from "@/lib/tour";
 
+// spotlight hole math and the four judge steps
 describe("tour spotlight geometry & steps", () => {
+  // the walkthrough hits bottleneck, why, status, then the tabs
   it("defines a 4-step judge walkthrough", () => {
     expect(PERMIT_TOUR_STEPS).toHaveLength(4);
     expect(PERMIT_TOUR_STEPS.map((s) => s.target)).toEqual([
@@ -16,6 +18,7 @@ describe("tour spotlight geometry & steps", () => {
     ]);
   });
 
+  // padding grows the hole, and it stays inside the viewport
   it("pads and clamps the spotlight hole within viewport bounds", () => {
     const hole = tourHoleFromRect(
       { top: 100, left: 200, width: 160, height: 80 },
@@ -27,6 +30,7 @@ describe("tour spotlight geometry & steps", () => {
     expect(hole.height).toBe(104);
   });
 
+  // with room below, the card sits under the hole
   it("places the coach card below or beside the spotlight hole without overlapping it", () => {
     const hole = { top: 80, left: 120, width: 200, height: 90 };
     const pos = placeTourCard(

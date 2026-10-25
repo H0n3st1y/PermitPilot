@@ -1,11 +1,13 @@
 @import "tailwindcss";
 
+/* theme fonts, one system family for the whole app */
 @theme {
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   /* Compatibility for existing headings: one system family throughout. */
   --font-serif: var(--font-sans);
 }
 
+/* color, radius, and spacing tokens */
 :root {
   --paper: #f5f3ec;
   --paper-2: #ece7db;
@@ -28,6 +30,7 @@
   --motion-feedback: 140ms;
 }
 
+/* high contrast swaps the palette to black, white, and yellow */
 html.high-contrast {
   --paper: #000000;
   --paper-2: #000000;
@@ -46,6 +49,7 @@ html.high-contrast {
   --banner: #000000;
 }
 
+/* light scheme by default, dark when high contrast is on */
 html {
   color-scheme: light;
 }
@@ -54,6 +58,7 @@ html.high-contrast {
   color-scheme: dark;
 }
 
+/* page background and the base type */
 body {
   margin: 0;
   background: var(--paper);
@@ -66,16 +71,19 @@ body {
   background: #000;
 }
 
+/* headings, form controls, and the logo lockup */
 h1, h2, h3 { font-weight: 600; letter-spacing: -0.03em; }
 input, button, select, textarea { font-family: inherit; }
 .brand-logo { display: inline-flex; align-items: center; gap: 0.6rem; vertical-align: middle; color: var(--navy); }
 .brand-logo-mark { flex-shrink: 0; }
 .brand-logo-wordmark { font-size: 1.25rem; font-weight: 650; letter-spacing: -0.045em; }
+/* landing header links only show on medium screens */
 .landing-header-links { display: none; }
 @media (min-width: 768px) and (max-width: 1535px) {
   .landing-header-links { display: flex; align-items: center; gap: 2rem; margin-inline-start: auto; margin-inline-end: 1.25rem; font-size: 0.875rem; }
 }
 
+/* underline links and thicken the focus ring in high contrast */
 .high-contrast a {
   text-decoration: underline;
   text-underline-offset: 0.16em;
@@ -86,11 +94,13 @@ input, button, select, textarea { font-family: inherit; }
   outline-offset: 3px;
 }
 
+/* keyboard focus ring */
 :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
 
+/* skip link stays off screen until it is focused */
 .skip-link {
   position: absolute;
   left: 1rem;
@@ -107,6 +117,7 @@ input, button, select, textarea { font-family: inherit; }
   top: 0.75rem;
 }
 
+/* text brand link in the header */
 .brand {
   display: inline-flex;
   align-items: center;
@@ -133,6 +144,7 @@ input, button, select, textarea { font-family: inherit; }
   border: 2px solid #fff;
 }
 
+/* header navigation links */
 .nav-link {
   display: inline-flex;
   min-height: 44px;
@@ -142,6 +154,7 @@ input, button, select, textarea { font-family: inherit; }
   text-decoration: none;
 }
 
+/* contrast and plain-language pills */
 .a11y-toggle {
   display: inline-flex;
   min-height: 44px;
@@ -162,6 +175,7 @@ input, button, select, textarea { font-family: inherit; }
   border-color: var(--navy);
 }
 
+/* language button and the menu under it */
 .locale-switch {
   display: inline-flex;
   min-height: 44px;
@@ -230,6 +244,7 @@ input, button, select, textarea { font-family: inherit; }
   background: var(--paper-2);
 }
 
+/* strip that says this is a demonstration */
 .demo-banner {
   background: var(--banner);
   border-bottom: 1px solid var(--line);
@@ -244,6 +259,7 @@ input, button, select, textarea { font-family: inherit; }
   font-weight: 700;
 }
 
+/* small uppercase label above headings */
 .eyebrow {
   color: var(--seal);
   font-size: 0.78rem;
@@ -252,6 +268,7 @@ input, button, select, textarea { font-family: inherit; }
   text-transform: uppercase;
 }
 
+/* card surface */
 .panel {
   min-width: 0;
   border: 1px solid var(--line);
@@ -265,6 +282,7 @@ input, button, select, textarea { font-family: inherit; }
   box-shadow: inset 4px 0 0 var(--warn);
 }
 
+/* shared button sizes */
 .button {
   display: inline-flex;
   min-height: 44px;
@@ -295,6 +313,7 @@ input, button, select, textarea { font-family: inherit; }
   border-color: var(--line);
 }
 
+/* pill tabs for the project sections */
 .tab {
   display: inline-flex;
   min-height: 44px;
@@ -315,6 +334,7 @@ input, button, select, textarea { font-family: inherit; }
   border-color: var(--navy);
 }
 
+/* status dropdown and the little status chips */
 .status-select {
   min-height: 44px;
   width: 100%;
@@ -368,6 +388,7 @@ input, button, select, textarea { font-family: inherit; }
   border: 2px solid #fff;
 }
 
+/* code chip and the popup under it */
 .citation-badge {
   display: inline-flex;
   min-height: 36px;
@@ -396,6 +417,7 @@ input, button, select, textarea { font-family: inherit; }
   box-shadow: 0 12px 40px color-mix(in srgb, var(--navy-2) 18%, transparent);
 }
 
+/* numbered timeline rail */
 .timeline-rail {
   position: relative;
   list-style: none;
@@ -446,6 +468,7 @@ input, button, select, textarea { font-family: inherit; }
   background: var(--line);
 }
 
+/* warning callout on a stuck step */
 .bottleneck-flag {
   display: flex;
   gap: 0.5rem;
@@ -459,6 +482,7 @@ input, button, select, textarea { font-family: inherit; }
   font-weight: 600;
 }
 
+/* fee table on wider screens */
 .fee-table {
   width: 100%;
   border-collapse: collapse;
@@ -473,6 +497,7 @@ input, button, select, textarea { font-family: inherit; }
   vertical-align: top;
 }
 
+/* one inspection checklist row */
 .inspection-item {
   display: flex;
   gap: 0.75rem;
@@ -495,6 +520,7 @@ input, button, select, textarea { font-family: inherit; }
   flex-shrink: 0;
 }
 
+/* selectable cards and form fields */
 .choice {
   display: block;
   width: 100%;
@@ -544,6 +570,7 @@ input, button, select, textarea { font-family: inherit; }
   }
 }
 
+/* graph canvas and the permit boxes */
 .permit-graph-canvas {
   height: min(34rem, 70vh);
   min-height: 22rem;
@@ -630,6 +657,7 @@ input, button, select, textarea { font-family: inherit; }
   color: var(--muted) !important;
 }
 
+/* tour spotlight and the coach card */
 .tour-spotlight {
   border-radius: 14px;
   border: 2.5px solid var(--seal);
@@ -677,6 +705,7 @@ input, button, select, textarea { font-family: inherit; }
   animation: tour-pulse 1.5s ease-in-out infinite;
 }
 
+/* green banner after you approve a step */
 .handoff-banner {
   display: flex;
   align-items: center;
@@ -762,6 +791,7 @@ input[type="checkbox"] { accent-color: var(--navy); }
   .timeline-stem { left: 0.95rem; top: 2rem; }
   .permit-graph-canvas { min-height: 20rem; height: 60svh; }
 }
+/* cut motion when the user asked for less of it */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -1101,6 +1131,7 @@ button.attention-row:hover .attention-icon { outline: 1px solid currentColor; }
 .intake-build-note { margin-top: 1.25rem; padding-inline-start: 1rem; border-inline-start: 3px solid var(--navy); }
 .intake-build-note p { margin-top: 0.5rem; font-size: 0.85rem; color: var(--muted); }
 .intake-presets summary { display: flex; align-items: center; gap: 0.5rem; color: var(--navy); min-height: 44px; font-weight: 600; }
+/* welcome card after a roadmap is first built */
 .roadmap-welcome { display: grid; gap: 1rem; margin-bottom: 1.25rem; border-inline-start: 4px solid var(--ok); background: color-mix(in srgb, var(--ok) 4%, var(--card)); }
 .roadmap-welcome h2 { margin-top: 0.3rem; font-size: 1.4rem; font-family: var(--font-serif); color: var(--navy); }
 .roadmap-welcome-copy > p:not(.eyebrow) { margin-top: 0.5rem; font-size: 0.9rem; color: var(--muted); max-width: 70ch; }

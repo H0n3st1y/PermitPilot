@@ -26,6 +26,7 @@ const catalogs = { en, zh, hi, es, fr, ar, bn, pt } as const;
 
 type MessageTree = { [key: string]: string | MessageTree };
 
+// true when the value is one of the language codes above
 export function isLocale(value: unknown): value is Locale {
   return typeof value === "string" && (LOCALES as readonly string[]).includes(value);
 }
@@ -34,23 +35,30 @@ export function isLocale(value: unknown): value is Locale {
 function lookup(tree: MessageTree, path: string): string | undefined {
   const parts = path.split(".");
   let node: string | MessageTree | undefined = tree;
+  // step down one key at a time
   for (const part of parts) {
+    // ran out of object before the path ended
     if (!node || typeof node === "string") return undefined;
     node = node[part];
   }
+  // only a string at the end counts as a message
   return typeof node === "string" ? node : undefined;
 }
 
+// fill {placeholders} in a message
 export function interpolate(
   template: string,
   vars?: Record<string, string | number>,
 ): string {
+  // nothing to fill in
   if (!vars) return template;
+  // swap each {name} for the value we were given, or leave it
   return template.replace(/\{(\w+)\}/g, (_, key: string) =>
     vars[key] === undefined ? `{${key}}` : String(vars[key]),
   );
 }
 
+// look up a message and fill in any placeholders
 export function translate(
   locale: Locale,
   path: string,
@@ -59,6 +67,7 @@ export function translate(
   // missing a key? fall back to english
   const primary = lookup(catalogs[locale] as MessageTree, path);
   const fallback = locale === "en" ? undefined : lookup(catalogs.en as MessageTree, path);
+  // translation, then English, then the raw key
   const template = primary ?? fallback ?? path;
   return interpolate(template, vars);
 }

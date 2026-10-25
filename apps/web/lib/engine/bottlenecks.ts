@@ -2,9 +2,13 @@ import { differenceInCalendarDays } from "@/lib/dates";
 import { criticalPathIds } from "@/lib/engine/timeline";
 import type { Bottleneck, PermitStep } from "@/lib/types";
 
+// turn a list of step names into a short phrase
 function joinNames(names: string[]): string {
+  // zero or one name doesn't need a joiner
   if (names.length <= 1) return names[0] ?? "";
+  // two names get "and"
   if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  // three or more get commas plus a final and
   return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
 }
 
@@ -15,6 +19,7 @@ export function detectBottlenecks(steps: PermitStep[], now = new Date()): Bottle
   const bottlenecks: Bottleneck[] = [];
 
   for (const step of steps) {
+    // deps that exist and aren't approved yet
     const blocking = step.dependencies.filter((id) => {
       const dependency = byId.get(id);
       return dependency && dependency.status !== "approved";
@@ -37,6 +42,7 @@ export function detectBottlenecks(steps: PermitStep[], now = new Date()): Bottle
         0,
         differenceInCalendarDays(now, new Date(step.statusChangedAt)),
       );
+      // only flag it once it's past the usual minimum
       if (daysInReview >= step.estimatedMinDays) {
         bottlenecks.push({
           stepId: step.id,
@@ -47,6 +53,7 @@ export function detectBottlenecks(steps: PermitStep[], now = new Date()): Bottle
       }
     }
 
+    // on the critical path, ready to start, and later steps still need it
     if (
       critical.has(step.id) &&
       step.status !== "approved" &&
@@ -70,7 +77,9 @@ export function detectBottlenecks(steps: PermitStep[], now = new Date()): Bottle
 export function nextAction(steps: PermitStep[]): PermitStep | undefined {
   const byId = new Map(steps.map((step) => [step.id, step]));
   return steps.find((step) => {
+    // finished steps are not the next thing to do
     if (step.status === "approved") return false;
+    // every dependency has to be approved already
     return step.dependencies.every((id) => byId.get(id)?.status === "approved");
   });
 }

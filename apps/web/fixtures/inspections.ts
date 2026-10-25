@@ -1,8 +1,10 @@
 import { CITATIONS } from "@/fixtures/citations";
 import type { InspectionItem, InspectionType } from "@/lib/types";
 
+// A checklist row before we decide whether it is done
 type Template = Omit<InspectionItem, "completed">;
 
+// Building department checks for the demo inspection list
 const BUILDING: Template[] = [
   {
     id: "bldg-address",
@@ -66,6 +68,7 @@ const BUILDING: Template[] = [
   },
 ];
 
+// Fire department checks for the demo inspection list
 const FIRE: Template[] = [
   {
     id: "fire-extinguishers",
@@ -129,6 +132,7 @@ const FIRE: Template[] = [
   },
 ];
 
+// Health department checks for the demo inspection list
 const HEALTH: Template[] = [
   {
     id: "health-handwash",
@@ -192,16 +196,19 @@ const HEALTH: Template[] = [
   },
 ];
 
+// Which checklist to use for each inspection type
 const BY_TYPE: Record<InspectionType, Template[]> = {
   building: BUILDING,
   fire: FIRE,
   health: HEALTH,
 };
 
+// Build the requested checklists and start every item unchecked
 export function inspectionTemplates(types: InspectionType[]): InspectionItem[] {
   return types.flatMap((type) =>
     BY_TYPE[type].map((item) => ({
       ...item,
+      // Nothing is checked off until the user says so
       completed: false,
     })),
   );

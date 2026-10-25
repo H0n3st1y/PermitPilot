@@ -27,15 +27,18 @@ import "@xyflow/react/dist/style.css";
 const nodeTypes = { permit: PermitStepNode };
 
 // canned email, not from claude
+// fill the follow-up email from the step, not from a model
 function buildDeterministicFollowUpDraft(
   project: Project,
   step: PermitStep,
   ruleId?: string,
 ): string {
+  // first citation, or a generic phrase when the step has none
   const citation = step.citations[0]
     ? `${step.citations[0].code} (${step.citations[0].title})`
     : "applicable municipal code";
   const changedAt = step.statusChangedAt ? new Date(step.statusChangedAt).getTime() : NaN;
+  // days since the status changed, or 12 when we don't have a date
   const days = Number.isFinite(changedAt)
     ? Math.max(1, Math.round((Date.now() - changedAt) / (1000 * 60 * 60 * 24)))
     : 12;
@@ -55,6 +58,7 @@ function buildDeterministicFollowUpDraft(
   ].join("\n");
 }
 
+// permit graph plus the why-this-step panel
 export function PermitGraph({
   project,
   bottlenecks,
@@ -82,6 +86,7 @@ export function PermitGraph({
   const explanationRequest = useRef<AbortController | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // changing steps cancels an in-flight explanation and the copy flash
   useEffect(() => {
     explanationRequest.current?.abort();
     setExplanation("");
@@ -92,11 +97,14 @@ export function PermitGraph({
     return () => { explanationRequest.current?.abort(); if (copyTimer.current) clearTimeout(copyTimer.current); };
   }, [selectedId]);
 
+  // steps that sit on the critical path
   const critical = useMemo(() => criticalPathIds(project.roadmap.steps), [project.roadmap.steps]);
+  // bottleneck lookup by step id
   const bottleneckByStep = useMemo(
     () => new Map(bottlenecks.map((item) => [item.stepId, item])),
     [bottlenecks],
   );
+  // the node the tour should highlight
   const primaryBottleneckId =
     bottlenecks[0]?.stepId ??
     project.roadmap.steps.find((s) => s.id === "health-permit")?.id ??
@@ -109,6 +117,7 @@ export function PermitGraph({
   const graph = useMemo(() => {
     // turn steps into nodes + arrows
     const positions = layoutPermitGraph(project.roadmap.steps);
+    // one node per step, flagged if it is stuck, critical, or selected
     const nextNodes: Node[] = project.roadmap.steps.map((step) => {
       const point = positions.get(step.id) ?? { x: 0, y: 0 };
       const node: PermitFlowNode = {
@@ -130,6 +139,7 @@ export function PermitGraph({
       return node;
     });
 
+    // an arrow for each dependency, thicker when both ends are critical
     const nextEdges: Edge[] = project.roadmap.steps.flatMap((step) =>
       step.dependencies.map((dependency) => ({
         id: `${dependency}->${step.id}`,
@@ -145,15 +155,18 @@ export function PermitGraph({
 
   const [nodes, setNodes, onNodesChange] = useNodesState(graph.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges);
+  // clicking a node in the canvas selects it
   const handleSelectionChange = useCallback(({ nodes: selected }: { nodes: Node[] }) => {
     if (selected[0]) setSelectedId(selected[0].id);
   }, []);
 
+  // push a rebuilt graph into the canvas state
   useEffect(() => {
     setNodes(graph.nodes);
     setEdges(graph.edges);
   }, [graph, setNodes, setEdges]);
 
+  // if the selected step disappeared, pick the bottleneck or the first step
   useEffect(() => {
     if (!selectedId || project.roadmap.steps.some((step) => step.id === selectedId)) return;
     setSelectedId(bottlenecks[0]?.stepId ?? project.roadmap.steps[0]?.id ?? null);
@@ -167,6 +180,7 @@ export function PermitGraph({
     project.roadmap.steps.map((step) => step.id).join(","),
   ].join("|");
 
+  // ask the citations route to match quotes onto these steps
   useEffect(() => {
     const stepIds = project.roadmap.steps.map((step) => step.id);
     let cancelled = false;
@@ -178,29 +192,36 @@ export function PermitGraph({
       body: JSON.stringify({ action: "match", config: project.config, stepIds }),
     }))
       .then(async (response) => {
+        // a failed match just leaves the lists empty
         if (!response.ok) return;
         const body = (await response.json()) as {
           citations?: MatchedCitation[];
           followUps?: FollowUpSuggestion[];
         };
+        // ignore a response that came back after we moved on
         if (cancelled) return;
         setMatchedCitations(body.citations ?? []);
         setFollowUps(body.followUps ?? []);
       })
       .catch(() => undefined);
+    // abort the match if the project changes
     return () => {
       cancelled = true;
       controller.abort();
     };
   }, [citationKey, project.config, project.roadmap.steps]);
 
+  // save a status and, if it was an approval, point at the next step
   function handleStepStatusChange(stepId: string, status: PermitStepStatus) {
+    // pretend the change already happened so we can find the next action
     const simulatedSteps = project.roadmap.steps.map((step) =>
       step.id === stepId ? { ...step, status, statusChangedAt: new Date().toISOString() } : step,
     );
     const nextUpcoming = nextAction(simulatedSteps);
+    // the parent refused the save
     if (onStatusChange(stepId, status) === false) return;
 
+    // an approval with a next step shows the handoff banner
     if (status === "approved" && nextUpcoming) {
       setHandoffText(
         t("graph.handoffNow", {
@@ -213,6 +234,7 @@ export function PermitGraph({
     }
   }
 
+  // follow-up draft shows for a bottleneck or a step already sent in
   const showFollowUp =
     selectedStep &&
     (Boolean(selectedBottleneck) || selectedStep.status === "in_review" || selectedStep.status === "submitted");
@@ -222,6 +244,7 @@ export function PermitGraph({
       ? buildDeterministicFollowUpDraft(project, selectedStep, selectedTrace?.ruleId)
       : "";
 
+  // copy the draft and flash the copied state
   async function handleCopyFollowUp() {
     if (!followUpText || copyBusy) return;
     setCopyBusy(true);
@@ -229,12 +252,14 @@ export function PermitGraph({
     try {
       await navigator.clipboard.writeText(followUpText);
       setCopied(true);
+      // the check mark goes away after a couple seconds
       copyTimer.current = setTimeout(() => setCopied(false), 2500);
     } catch {
       setCopyError("Copy was unavailable. Select the draft text below and copy it manually, or try again.");
     } finally { setCopyBusy(false); }
   }
 
+  // matched quotes that belong to the selected step
   const matchedForStep = selectedStep
     ? matchedCitations.filter((item) => item.stepId === selectedStep.id)
     : [];
@@ -266,7 +291,7 @@ export function PermitGraph({
           citationQuote: quote,
         }),
       });
-      if (!response.ok) throw new Error("Explanation request failed");
+        if (!response.ok) throw new Error("Explanation request failed");
       const body = (await response.json()) as {
         explanation?: string;
         note?: string;
@@ -275,9 +300,12 @@ export function PermitGraph({
       const text = body.explanation?.trim() ?? "";
       setExplanation(text || body.note || "No explanation was returned.");
       setExplainFromModel(Boolean(body.modelUsed) && Boolean(text));
+      // a local fallback keeps the note; a model reply does not
       setExplainNote(body.modelUsed ? "" : (body.note ?? ""));
     } catch {
+      // a cancelled request should not overwrite the next step
       if (controller.signal.aborted) return;
+      // local paragraph from the quote, or a short failure line
       setExplanation(
         quote
           ? `The cited language says: "${quote}"\n\nIn plain English: this step is on the map because of that requirement. Confirm it with the town. This is not official legal advice.`
@@ -286,6 +314,7 @@ export function PermitGraph({
       setExplainFromModel(false);
       setExplainNote("The explanation service could not be reached. You can retry or open the citation source.");
     } finally {
+      // leave the busy flag alone if this request was cancelled
       if (!controller.signal.aborted) setExplainBusy(false);
     }
   }
@@ -307,6 +336,7 @@ export function PermitGraph({
               className="status-select mt-2"
               value={selectedId ?? ""}
               onChange={(event) => {
+                // picking a step clears the handoff and any explanation
                 setSelectedId(event.target.value || null);
                 setHandoffText(null);
                 setExplanation("");
@@ -315,6 +345,7 @@ export function PermitGraph({
               }}
             >
               <option value="" disabled>{t("graph.selectHint")}</option>
+              {/* one option per step, in sequence */}
               {project.roadmap.steps.map((step) => (
                 <option key={step.id} value={step.id}>
                   {step.sequence}. {step.shortTitle} ({step.department})
@@ -338,6 +369,7 @@ export function PermitGraph({
               minZoom={0.45}
               maxZoom={1.4}
               onNodeClick={(_, node) => {
+                // same reset as the dropdown when they click a node
                 setSelectedId(node.id);
                 setHandoffText(null);
                 setExplanation("");
@@ -361,6 +393,7 @@ export function PermitGraph({
                 {selectedStep?.title ?? t("graph.selectHint")}
               </h3>
             </div>
+            {/* close puts focus back on the step list */}
             {selectedStep ? (
               <button
                 type="button"
@@ -373,12 +406,15 @@ export function PermitGraph({
             ) : null}
           </div>
 
+          {/* details for the selected step, or the empty hint */}
           {selectedStep ? (
             <>
               <p className="mt-3 text-[var(--ink)]">
+                {/* plain wording when that setting is on */}
                 {plainLanguage ? selectedStep.plainLanguage : selectedStep.whyRequired}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
+                {/* critical and bottleneck chips when they apply */}
                 {critical.has(selectedStep.id) ? (
                   <span className="status-pill status-submitted">{t("graph.critical")}</span>
                 ) : null}
@@ -386,12 +422,14 @@ export function PermitGraph({
                   <span className="status-pill status-in_review">{t("graph.bottleneck")}</span>
                 ) : null}
               </div>
+              {/* why this step is stuck */}
               {selectedBottleneck ? (
                 <p className="bottleneck-flag" role="status">
                   {plainLanguage ? selectedBottleneck.plainLanguage : selectedBottleneck.message}
                 </p>
               ) : null}
 
+              {/* next step after an approval */}
               {handoffText ? (
                 <div className="handoff-banner" role="status">
                   <ArrowRightCircle size={18} className="shrink-0 text-[var(--ok)]" aria-hidden />
@@ -400,6 +438,7 @@ export function PermitGraph({
               ) : null}
 
               <div className="mt-4 space-y-2.5" data-tour="status-control">
+                {/* quick approve hides once it is already approved */}
                 {selectedStep.status !== "approved" ? (
                   <button
                     type="button"
@@ -417,6 +456,7 @@ export function PermitGraph({
               </div>
 
               <div data-tour="why-trace" className="mt-4 rounded-lg border border-[var(--line)] bg-[var(--paper)] p-3">
+                {/* rule trace, or a note when this step has none */}
                 {selectedTrace ? (
                   <dl className="space-y-3 text-sm">
                     <div>
@@ -437,6 +477,7 @@ export function PermitGraph({
                       </dt>
                       <dd className="mt-1">
                         <ul className="list-disc space-y-1 pl-5">
+                          {/* each field the rule matched */}
                           {selectedTrace.matchedConditions.map((condition) => (
                             <li key={condition} className="font-mono text-xs">
                               {condition}
@@ -460,6 +501,7 @@ export function PermitGraph({
                     </li>
                   ))}
                 </ul>
+                {/* quotes the matcher attached to this step */}
                 {matchedForStep.length > 0 ? (
                   <ul className="mt-3 space-y-2">
                     {matchedForStep.map((item) => (
@@ -468,6 +510,7 @@ export function PermitGraph({
                           {item.code} · {item.title}
                         </p>
                         <p className="mt-1 text-[var(--ink)]">{item.quote}</p>
+                        {/* source link when the match included one */}
                         {item.url ? (
                           <a className="mt-1 inline-block font-semibold text-[var(--navy)] underline" href={item.url} target="_blank" rel="noreferrer">
                             Open source
@@ -487,12 +530,15 @@ export function PermitGraph({
                   <Sparkles size={13} aria-hidden />
                   {explainBusy ? "Explaining…" : "Explain this citation"}
                 </button>
+                {/* explanation after they ask for one */}
                 {explanation ? (
                   <div role="status" className="mt-3 rounded border border-[var(--line)] bg-[var(--card)] p-2.5">
                     <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+                      {/* label says whether a model wrote it */}
                       {explainFromModel ? "Claude explanation" : "Plain-language summary"}
                     </p>
                     <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--ink)]">{explanation}</p>
+                    {/* extra note when we fell back to local text */}
                     {explainNote ? (
                       <p className="mt-2 text-xs text-[var(--muted)]">{explainNote}</p>
                     ) : null}
@@ -500,6 +546,7 @@ export function PermitGraph({
                 ) : null}
               </div>
 
+              {/* extra ideas that are not added to the map */}
               {followUps.length > 0 ? (
                 <div className="mt-4 rounded-lg border border-[var(--line)] bg-[var(--paper)] p-3">
                   <p className="text-xs font-bold uppercase tracking-wide text-[var(--navy)]">
@@ -518,6 +565,7 @@ export function PermitGraph({
                 </div>
               ) : null}
 
+              {/* email draft for a stuck or in-review step */}
               {showFollowUp ? (
                 <div className="mt-4 rounded-lg border border-[var(--line)] bg-[var(--paper)] p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -531,6 +579,7 @@ export function PermitGraph({
                       disabled={copyBusy}
                       className="button secondary text-sm"
                     >
+                      {/* check icon after a successful copy */}
                       {copied ? <Check size={13} aria-hidden /> : <Copy size={13} aria-hidden />}
                       {copyBusy ? "Copying…" : copied ? t("graph.copied") : t("graph.copyDraft")}
                     </button>

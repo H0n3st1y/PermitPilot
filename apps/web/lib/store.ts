@@ -50,13 +50,16 @@ export function sampleConfig(): ProjectConfig {
   };
 }
 
+// run those answers through the rules engine
 export function createProject(config: ProjectConfig): Project {
   return createProjectFromConfig(config);
 }
 
+// build the Harbor Kitchen demo, with health stuck in review
 export function sampleProject(now = new Date(), fixedId?: string): Project {
   // pretent health has been stuck 12 days so the gold bottleneck shows
   const project = createProjectFromConfig(sampleConfig(), now);
+  // pin the ids when the caller wants the stable sample id
   if (fixedId) {
     project.id = fixedId;
     project.roadmap.id = `roadmap-${fixedId}`;
@@ -65,13 +68,17 @@ export function sampleProject(now = new Date(), fixedId?: string): Project {
   const staleReviewStarted = new Date(now);
   staleReviewStarted.setDate(staleReviewStarted.getDate() - 12);
 
+  // mark a few steps so the demo graph isn't all "not started"
   project.roadmap.steps = project.roadmap.steps.map((step) => {
+    // zoning is already approved
     if (step.id === "zoning-review") {
       return { ...step, status: "approved" as const, statusChangedAt: staleReviewStarted.toISOString() };
     }
+    // health is the review that's been sitting
     if (step.id === "health-permit") {
       return { ...step, status: "in_review" as const, statusChangedAt: staleReviewStarted.toISOString() };
     }
+    // electrical was just submitted
     if (step.id === "electrical-permit") {
       return { ...step, status: "submitted" as const, statusChangedAt: now.toISOString() };
     }
@@ -101,6 +108,7 @@ export function sampleProject(now = new Date(), fixedId?: string): Project {
     },
   ];
 
+  // check off two health inspection items in the sample
   project.inspections = project.inspections.map((item) =>
     item.id === "health-handwash" || item.id === "health-cfp"
       ? { ...item, completed: true }
@@ -111,34 +119,47 @@ export function sampleProject(now = new Date(), fixedId?: string): Project {
   return project;
 }
 
+// read the saved project list, or an empty list if storage isn't usable
 function readIndex(): StoredProjectMeta[] {
   try {
+    // not in a browser
     if (typeof localStorage === "undefined") return [];
     const raw = localStorage.getItem(PROJECT_INDEX_KEY);
+    // nothing saved yet
     if (!raw) return [];
     return JSON.parse(raw) as StoredProjectMeta[];
   } catch {
+    // bad json or blocked storage looks like an empty list
     return [];
   }
 }
 
+// write the project list back, unless we're not in a browser
 function writeIndex(entries: StoredProjectMeta[]): void {
+  // not in a browser
   if (typeof localStorage === "undefined") return;
   localStorage.setItem(PROJECT_INDEX_KEY, JSON.stringify(entries));
 }
 
+// find a saved project by the name on its config
 function findLocalProjectByName(name: string): Project | undefined {
+  // can't read the saved list
   if (!isProjectStorageReadable()) return undefined;
+  // check the index before falling back to the last-opened project
   for (const meta of readIndex()) {
     const loaded = getProject(meta.id);
+    // this saved project has the name we want
     if (loaded?.config.name === name) return loaded;
   }
   const lastId = getLastProjectId();
+  // no last project to fall back to
   if (!lastId) return undefined;
   const fallback = getProject(lastId);
+  // only use the last project when the name matches
   return fallback?.config.name === name ? fallback : undefined;
 }
 
+// keep the roadmap ids lined up with a stable project id
 function assignStableId(project: Project, id: string): Project {
   project.id = id;
   project.roadmap.id = `roadmap-${id}`;
@@ -153,20 +174,24 @@ function dedupeSampleProjects(projects: Project[]): Project[] {
 
   for (const project of projects) {
     const name = project.config.name;
+    // real projects pass through
     if (!SAMPLE_PROJECT_NAMES.has(name)) {
       unique.push(project);
       continue;
     }
     const current = bySampleName.get(name);
+    // keep the sample copy with the later updatedAt
     if (!current || project.updatedAt > current.updatedAt) {
       bySampleName.set(name, project);
     }
   }
 
   unique.push(...bySampleName.values());
+  // newest projects first
   return unique.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
+// true for the three canned demos, by id or by name
 export function isSampleProject(project: Project): boolean {
   return (
     Object.values(SAMPLE_PROJECTS).some((sample) => sample.id === project.id) ||
@@ -177,6 +202,7 @@ export function isSampleProject(project: Project): boolean {
 function visibleProjectsForCurrentUser(projects: Project[]): Project[] {
   // regular people shouldnt see the sample shops they dont own
   const user = getCurrentUser();
+  // the demo judge is allowed to see the samples
   if (user?.isDemoJudge) return projects;
   return projects.filter((project) => !isSampleProject(project));
 }
@@ -193,7 +219,9 @@ export async function workspaceAfterAuth(): Promise<{
   };
 }
 
+// tell the page whether a save landed in the cloud, locally, or failed
 function notifyDbSync(projectId: string, source: "supabase" | "local" | "syncing" | "error", updatedAt?: string): void {
+  // no window, so there's nobody to notify
   if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") return;
   window.dispatchEvent(
     new CustomEvent(DB_SYNC_EVENT, {
@@ -206,6 +234,7 @@ export async function syncProjectToSupabase(project: Project): Promise<boolean> 
   // save locally even if the cloud write fails
   const supabase = getSupabaseClient();
   const user = getCurrentUser();
+  // only real cloud sessions get a remote write
   if (!supabase || user?.mode !== "supabase") {
     notifyDbSync(project.id, "local", project.updatedAt);
     return false;
@@ -228,6 +257,7 @@ export async function syncProjectToSupabase(project: Project): Promise<boolean> 
   notifyDbSync(project.id, "syncing", project.updatedAt);
   try {
     const { error } = await supabase.from("projects").upsert(row, { onConflict: "id" });
+    // upsert went through
     if (!error) {
       notifyDbSync(project.id, "supabase", project.updatedAt);
       return true;
@@ -239,23 +269,27 @@ export async function syncProjectToSupabase(project: Project): Promise<boolean> 
   return false;
 }
 
+// stash the project, remember it as last, and kick off a cloud sync
 export function saveProject(project: Project): void {
   if (typeof localStorage === "undefined") return;
   localStorage.setItem(`${PROJECT_PREFIX}${project.id}`, JSON.stringify(project));
   localStorage.setItem(LAST_KEY, project.id);
 
   const user = getCurrentUser();
+  // drop the old index row so this id isn't listed twice
   const index = readIndex().filter((entry) => entry.id !== project.id);
   index.unshift({
     id: project.id,
     userId: user?.id,
     ownerEmail: user?.email,
   });
+  // keep the index from growing past 50
   writeIndex(index.slice(0, 50));
 
   void syncProjectToSupabase(project);
 }
 
+// load one project from the browser, or null if it isn't there
 export function getProject(id: string): Project | null {
   try {
     if (typeof localStorage === "undefined") return null;
@@ -267,6 +301,7 @@ export function getProject(id: string): Project | null {
   }
 }
 
+// true when we can actually read the project index
 export function isProjectStorageReadable(): boolean {
   try {
     if (typeof localStorage === "undefined") return false;
@@ -277,6 +312,7 @@ export function isProjectStorageReadable(): boolean {
   }
 }
 
+// keep a cloud copy in the browser when storage allows it
 function cacheCloudProject(project: Project): void {
   try {
     if (typeof localStorage !== "undefined") {
@@ -298,6 +334,7 @@ interface SupabaseProjectRow {
   updated_at: string;
 }
 
+// turn a database row into the project shape the app uses
 function rowToProject(row: SupabaseProjectRow): Project {
   return {
     id: row.id,
@@ -326,6 +363,7 @@ export async function fetchProjectFromDb(id: string): Promise<Project | null> {
     if (!error && data) {
       const project = rowToProject(data as SupabaseProjectRow);
       const local = getProject(id);
+      // a newer browser copy wins over the older cloud row
       if (local && local.updatedAt > project.updatedAt) return local;
       cacheCloudProject(project);
       notifyDbSync(project.id, "supabase", project.updatedAt);
@@ -335,6 +373,7 @@ export async function fetchProjectFromDb(id: string): Promise<Project | null> {
   return getProject(id);
 }
 
+// projects in this browser that belong to whoever is signed in
 export function listLocalProjectsForCurrentUser(): Project[] {
   if (!isProjectStorageReadable()) return [];
   const user = getCurrentUser();
@@ -343,8 +382,10 @@ export function listLocalProjectsForCurrentUser(): Project[] {
   const seen = new Set<string>();
 
   for (const meta of index) {
+    // skip rows saved under someone else's email
     if (user && meta.ownerEmail && meta.ownerEmail !== user.email) continue;
     const loaded = getProject(meta.id);
+    // skip missing rows and ones we already added
     if (loaded && !seen.has(loaded.id)) {
       seen.add(loaded.id);
       projects.push(loaded);
@@ -352,12 +393,14 @@ export function listLocalProjectsForCurrentUser(): Project[] {
   }
 
   const lastId = getLastProjectId();
+  // the last-opened project might not be in the index
   if (lastId && !seen.has(lastId)) {
     const fallback = getProject(lastId);
     const alreadyHaveSample =
       fallback &&
       SAMPLE_PROJECT_NAMES.has(fallback.config.name) &&
       projects.some((project) => project.config.name === fallback.config.name);
+    // don't add a second copy of a sample we already have
     if (fallback && !alreadyHaveSample) projects.unshift(fallback);
   }
 
@@ -369,6 +412,7 @@ export async function listUserProjects(): Promise<Project[]> {
   const local = listLocalProjectsForCurrentUser();
   const supabase = getSupabaseClient();
   const user = getCurrentUser();
+  // no cloud session, so the browser list is the whole list
   if (!supabase || user?.mode !== "supabase") return local;
 
   const query = supabase
@@ -379,30 +423,36 @@ export async function listUserProjects(): Promise<Project[]> {
     .eq("user_id", user.id);
 
   const { data, error } = await query;
+  // cloud read failed, stick with what we have locally
   if (error || !data) return local;
 
   const merged = new Map<string, Project>();
+  // cloud rows win, and we cache them locally
   for (const row of data as SupabaseProjectRow[]) {
     const project = rowToProject(row);
     merged.set(project.id, project);
     cacheCloudProject(project);
   }
+  // keep local-only projects the cloud didn't return
   for (const item of local) {
     if (!merged.has(item.id)) merged.set(item.id, item);
   }
   return visibleProjectsForCurrentUser(dedupeSampleProjects([...merged.values()]));
 }
 
+// rebuild Harbor Kitchen and save it over the same id when we have one
 export function resetHarborKitchen(existingId?: string): Project {
   const fresh = sampleProject(new Date(), existingId);
   saveProject(fresh);
   return fresh;
 }
 
+// reuse the saved Harbor Kitchen when health is still in review, otherwise reseed it
 export function getOrSeedHarborKitchen(): Project {
   const existing = findLocalProjectByName(SAMPLE_PROJECTS.harbor.name);
   if (existing) {
     const health = existing.roadmap.steps.find((s) => s.id === "health-permit");
+    // the stuck review is already there, so just save and return it
     if (health && health.status === "in_review") {
       saveProject(existing);
       return existing;
@@ -421,7 +471,9 @@ export function seedMockAccountWorkspace(): {
 } {
   const now = new Date();
 
+  // load the cafe, the block party, and harbor, creating any that are missing
   let cafe = findLocalProjectByName(SAMPLE_PROJECTS.cafe.name);
+  // create the cafe demo the first time
   if (!cafe) {
     cafe = assignStableId(
       createProjectFromConfig(
@@ -446,6 +498,7 @@ export function seedMockAccountWorkspace(): {
       ),
       SAMPLE_PROJECTS.cafe.id,
     );
+    // first steps approved, then one in review and one submitted
     cafe.roadmap.steps = cafe.roadmap.steps.map((step, idx) => {
       if (idx < 2) {
         return { ...step, status: "approved" as const, statusChangedAt: now.toISOString() };
@@ -462,6 +515,7 @@ export function seedMockAccountWorkspace(): {
   }
 
   let eventProj = findLocalProjectByName(SAMPLE_PROJECTS.event.name);
+  // create the block party demo the first time
   if (!eventProj) {
     eventProj = assignStableId(
       createProjectFromConfig(
@@ -486,6 +540,7 @@ export function seedMockAccountWorkspace(): {
       ),
       SAMPLE_PROJECTS.event.id,
     );
+    // first two approved, the third submitted
     eventProj.roadmap.steps = eventProj.roadmap.steps.map((step, idx) => {
       if (idx < 2) {
         return { ...step, status: "approved" as const, statusChangedAt: now.toISOString() };
@@ -505,6 +560,7 @@ export function seedMockAccountWorkspace(): {
   };
 }
 
+// id of the project we opened most recently
 export function getLastProjectId(): string | null {
   try {
     if (typeof localStorage === "undefined") return null;
@@ -531,11 +587,13 @@ export function updateStepStatus(project: Project, stepId: string, status: Permi
   return next;
 }
 
+// replace the file for this step and requirement, then save
 export function upsertDocument(project: Project, document: UploadedDocument): Project {
   const next: Project = {
     ...project,
     updatedAt: new Date().toISOString(),
     documents: [
+      // drop the previous file for the same slot
       ...project.documents.filter(
         (item) => !(item.stepId === document.stepId && item.requirementId === document.requirementId),
       ),
@@ -546,6 +604,7 @@ export function upsertDocument(project: Project, document: UploadedDocument): Pr
   return next;
 }
 
+// take one uploaded file off the project and save
 export function removeDocument(project: Project, documentId: string): Project {
   const next: Project = {
     ...project,
@@ -556,6 +615,7 @@ export function removeDocument(project: Project, documentId: string): Project {
   return next;
 }
 
+// flip one inspection item and save
 export function toggleInspection(project: Project, itemId: string, completed: boolean): Project {
   const next: Project = {
     ...project,

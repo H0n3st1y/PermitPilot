@@ -24,6 +24,7 @@ interface ProductTourProps {
   onBeforeStart?: () => void;
 }
 
+// spotlight tour that walks the permit graph
 export function ProductTour({
   activeTab,
   forceStart = false,
@@ -44,6 +45,7 @@ export function ProductTour({
 
   const step = PERMIT_TOUR_STEPS[index];
 
+  // open the tour on the first step and remember where focus was
   const start = useCallback(() => {
     autoStartedRef.current = true;
     returnFocusRef.current = document.activeElement as HTMLElement | null;
@@ -53,6 +55,7 @@ export function ProductTour({
     setOpen(true);
   }, [onBeforeStart]);
 
+  // mark it done, drop the tour query, and put focus back
   const finish = useCallback(() => {
     markTourComplete();
     setOpen(false);
@@ -62,11 +65,13 @@ export function ProductTour({
     returnFocusRef.current?.focus({ preventScroll: true });
   }, []);
 
+  // last step closes the tour; otherwise move forward
   const next = useCallback(() => {
     if (index >= PERMIT_TOUR_STEPS.length - 1) finish();
     else setIndex((current) => current + 1);
   }, [index, finish]);
 
+  // the guide button and a custom event can both start the tour
   useEffect(() => {
     const unregister = registerTourStartHandler(start);
     const onCustomEvent = () => start();
@@ -77,8 +82,10 @@ export function ProductTour({
     };
   }, [start]);
 
+  // auto-open once, unless they already finished or auto start is off
   useEffect(() => {
     if (autoStartedRef.current || (!forceStart && (!autoStart || isTourComplete()))) return;
+    // forced start waits a little less than the automatic one
     const id = window.setTimeout(() => {
       autoStartedRef.current = true;
       start();
@@ -86,10 +93,12 @@ export function ProductTour({
     return () => window.clearTimeout(id);
   }, [forceStart, autoStart, start]);
 
+  // focus the card title whenever the step changes
   useEffect(() => {
     if (open) titleRef.current?.focus({ preventScroll: true });
   }, [open, index]);
 
+  // leaving the tour's tab ends the tour
   useEffect(() => {
     if (!open || !step) return;
     if (activeTab !== step.tab) {
@@ -97,17 +106,20 @@ export function ProductTour({
     }
   }, [open, step, activeTab, finish]);
 
+  // measure the target, scroll it into view once, and place the card
   const measureAndScroll = useCallback(() => {
     if (!open || !step) return false;
     const el = document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`);
     const viewport = { width: window.innerWidth, height: window.innerHeight };
 
+    // no target yet, so drop the hole
     if (!el) {
       setHole(null);
       return false;
     }
 
     const rect = el.getBoundingClientRect();
+    // a zero-size target is not ready to highlight
     if (rect.width <= 0 || rect.height <= 0) {
       setHole(null);
       return false;
@@ -119,6 +131,7 @@ export function ProductTour({
     const isOutOfComfortZone =
       rect.top < margin || rect.bottom > viewport.height - margin;
 
+    // scroll once per step when the target is too close to an edge
     if (scrolledStepRef.current !== step.id && isOutOfComfortZone) {
       scrolledStepRef.current = step.id;
       const absoluteTop = rect.top + window.scrollY;
@@ -127,6 +140,7 @@ export function ProductTour({
         Math.round(absoluteTop - viewport.height * 0.28),
       );
       window.scrollTo({ top: targetScrollY, behavior: "instant" as ScrollBehavior });
+    // already on screen, so just remember that we saw this step
     } else if (scrolledStepRef.current !== step.id) {
       scrolledStepRef.current = step.id;
     }
@@ -144,6 +158,7 @@ export function ProductTour({
     return true;
   }, [open, step]);
 
+  // remeasure while the graph finishes laying out, and on scroll or resize
   useEffect(() => {
     if (!open || !step) return;
 
@@ -161,11 +176,13 @@ export function ProductTour({
     window.addEventListener("resize", onViewportChange);
     window.addEventListener("scroll", onViewportChange, true);
 
+    // the graph nodes show up after render, so watch the dom too
     const observer = new MutationObserver(() => {
       measureAndScroll();
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
+    // clear the timers and listeners for this step
     return () => {
       timers.forEach((id) => window.clearTimeout(id));
       window.removeEventListener("resize", onViewportChange);
@@ -174,6 +191,7 @@ export function ProductTour({
     };
   }, [open, step, index, measureAndScroll]);
 
+  // a click on this step's target moves the tour forward
   useEffect(() => {
     if (!open || !step) return;
     const actionKey = step.actionTarget ?? step.target;
@@ -184,6 +202,7 @@ export function ProductTour({
       advanceTimerRef.current = window.setTimeout(next, 180);
     };
 
+    // the target can appear late, so bind when we find it
     const bind = () => {
       const candidate = document.querySelector<HTMLElement>(`[data-tour="${actionKey}"]`);
       if (candidate && candidate !== boundEl) {
@@ -196,6 +215,7 @@ export function ProductTour({
     bind();
     const t1 = window.setTimeout(bind, 250);
     const t2 = window.setTimeout(bind, 600);
+    // unbind the click when the step changes
     return () => {
       window.clearTimeout(advanceTimerRef.current);
       window.clearTimeout(t1);
@@ -204,18 +224,21 @@ export function ProductTour({
     };
   }, [open, step, index, next]);
 
+  // escape ends the tour; arrows move only when focus is in the card
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") { event.preventDefault(); finish(); return; }
       if (!cardRef.current?.contains(event.target as Node)) return;
       if (event.key === "ArrowRight") { event.preventDefault(); next(); }
+      // left arrow stops at the first step
       if (event.key === "ArrowLeft") { event.preventDefault(); setIndex((i) => Math.max(0, i - 1)); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, finish, next]);
 
+  // nothing to draw until the tour is open on a step
   if (!open || !step) return null;
 
   const isLast = index === PERMIT_TOUR_STEPS.length - 1;
@@ -229,6 +252,7 @@ export function ProductTour({
       aria-labelledby="product-tour-title"
       aria-describedby="product-tour-body"
     >
+      {/* spotlight around the target, or a full dim when we can't find it */}
       {hole ? (
         <div
           className="tour-spotlight pointer-events-none fixed"
@@ -272,6 +296,7 @@ export function ProductTour({
             {t(step.bodyKey)}
           </p>
 
+          {/* tap hint only on steps that have one */}
           {step.ctaKey ? (
             <div className="tour-tap mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-[var(--line)] bg-[var(--paper)] px-2.5 py-1 text-xs font-semibold text-[var(--navy)]">
               <MousePointerClick size={13} aria-hidden />
@@ -281,6 +306,7 @@ export function ProductTour({
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--line)] pt-3">
             <div className="flex items-center gap-1.5" aria-hidden>
+              {/* dots: current step is wide, finished steps are filled */}
               {PERMIT_TOUR_STEPS.map((item, idx) => (
                 <span
                   key={item.id}
@@ -296,6 +322,7 @@ export function ProductTour({
             </div>
 
             <div className="flex items-center gap-2">
+              {/* back button after the first step */}
               {index > 0 ? (
                 <button
                   type="button"
@@ -306,6 +333,7 @@ export function ProductTour({
                   {t("tour.back")}
                 </button>
               ) : null}
+              {/* last step finishes; the others advance */}
               <button
                 type="button"
                 onClick={isLast ? finish : next}

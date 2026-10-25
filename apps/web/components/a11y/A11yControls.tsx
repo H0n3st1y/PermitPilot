@@ -1,6 +1,6 @@
 "use client";
 
-// 8 langs in a little dropdown up in the header
+// 9 langs in a little dropdown up in the header
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, Contrast, Languages } from "lucide-react";
 import { useA11y } from "@/lib/a11y";

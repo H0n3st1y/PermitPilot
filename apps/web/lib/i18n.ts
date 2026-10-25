@@ -6,9 +6,10 @@ import fr from "@/messages/fr.json";
 import ar from "@/messages/ar.json";
 import bn from "@/messages/bn.json";
 import pt from "@/messages/pt.json";
+import ml from "@/messages/ml.json";
 
-// eight langs, same set we used before
-export const LOCALES = ["en", "zh", "hi", "es", "fr", "ar", "bn", "pt"] as const;
+// nine langs, malayalam added with the rest
+export const LOCALES = ["en", "zh", "hi", "es", "fr", "ar", "bn", "pt", "ml"] as const;
 export type Locale = (typeof LOCALES)[number];
 
 export const LOCALE_META: Record<Locale, { native: string; english: string; dir: "ltr" | "rtl" }> = {
@@ -20,9 +21,10 @@ export const LOCALE_META: Record<Locale, { native: string; english: string; dir:
   ar: { native: "العربية", english: "Arabic", dir: "rtl" },
   bn: { native: "বাংলা", english: "Bengali", dir: "ltr" },
   pt: { native: "Português", english: "Portuguese", dir: "ltr" },
+  ml: { native: "മലയാളം", english: "Malayalam", dir: "ltr" },
 };
 
-const catalogs = { en, zh, hi, es, fr, ar, bn, pt } as const;
+const catalogs = { en, zh, hi, es, fr, ar, bn, pt, ml } as const;
 
 type MessageTree = { [key: string]: string | MessageTree };
 

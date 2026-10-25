@@ -8,8 +8,9 @@ import fr from "@/messages/fr.json";
 import ar from "@/messages/ar.json";
 import bn from "@/messages/bn.json";
 import pt from "@/messages/pt.json";
+import ml from "@/messages/ml.json";
 
-const catalogs = { en, zh, hi, es, fr, ar, bn, pt };
+const catalogs = { en, zh, hi, es, fr, ar, bn, pt, ml };
 
 // lookup and placeholder filling
 describe("translate", () => {
@@ -26,13 +27,14 @@ describe("translate", () => {
   });
 
   // spot-check the other catalogs
-  it("covers the 8 language catalogs", () => {
+  it("covers the 9 language catalogs", () => {
     expect(translate("pt", "home.title")).toContain("licença");
     expect(translate("fr", "nav.signIn")).toBe("Connexion");
     expect(translate("zh", "dashboard.tabs.graph")).toBe("关系图");
     expect(translate("hi", "a11y.language")).toBe("भाषा");
     expect(translate("bn", "nav.newProject")).toBe("নতুন প্রকল্প");
     expect(translate("ar", "nav.signIn")).toBe("تسجيل الدخول");
+    expect(translate("ml", "a11y.language")).toBe("ഭാഷ");
   });
 
   // an unknown key is returned as the key itself

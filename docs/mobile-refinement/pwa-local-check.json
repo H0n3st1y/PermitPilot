@@ -1,0 +1,21 @@
+{
+  "checkedAt": "2026-10-25T02:51:52.333Z",
+  "environment": "Production build at localhost in emulated phone Chromium, not a physical installed device",
+  "manifestURL": "http://127.0.0.1:3000/manifest.webmanifest",
+  "manifestErrors": [],
+  "installabilityErrors": [],
+  "controller": true,
+  "standalone": false,
+  "caches": [
+    "permitpilot-public-v3"
+  ],
+  "cachedPaths": [
+    "/offline.html",
+    "/manifest.webmanifest",
+    "/icon.svg",
+    "/icons/icon-192.png",
+    "/icons/icon-512.png",
+    "/icons/maskable-512.png",
+    "/icons/apple-touch-icon.png"
+  ]
+}

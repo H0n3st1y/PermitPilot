@@ -1,16 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
   ClipboardCheck,
-  Database,
   FileStack,
   GitCommitHorizontal,
   Landmark,
   Receipt,
-  RotateCcw,
   Share2,
 } from "lucide-react";
 import { DocumentVault } from "@/components/documents/DocumentVault";
@@ -20,14 +18,18 @@ import { AppShell } from "@/components/layout/AppShell";
 import { RoadmapOverview } from "@/components/roadmap/RoadmapOverview";
 import { TimelineView } from "@/components/timeline/TimelineView";
 import { ProductTour } from "@/components/tour/ProductTour";
+import { ProjectHeader, ProjectPriorities, RoadmapWelcome } from "@/components/project/ProjectSummary";
 import { useA11y } from "@/lib/a11y";
-import { detectBottlenecks, nextAction } from "@/lib/engine/bottlenecks";
-import { estimateOccupantLoad } from "@/lib/engine/rules";
+import { detectBottlenecks } from "@/lib/engine/bottlenecks";
+import { getDashboardSummary } from "@/lib/dashboardSummary";
 import {
   fetchProjectFromDb,
+  DB_SYNC_EVENT,
   getProject,
+  isProjectStorageReadable,
   removeDocument,
   resetHarborKitchen,
+  syncProjectToSupabase,
   toggleInspection,
   updateStepStatus,
   upsertDocument,
@@ -38,7 +40,7 @@ const PermitGraph = dynamic(
   () => import("@/components/graph/PermitGraph").then((mod) => mod.PermitGraph),
   {
     ssr: false,
-    loading: () => <p className="panel">Loading graph…</p>,
+    loading: () => <p className="panel" role="status">Loading graph…</p>,
   },
 );
 
@@ -61,38 +63,78 @@ export function ProjectDashboard({
   id,
   initialTab,
   initialTour = false,
+  initialCreated = false,
 }: {
   id: string;
   initialTab?: string;
   initialTour?: boolean;
+  initialCreated?: boolean;
 }) {
   const { t } = useA11y();
   const [project, setProject] = useState<Project | null>(null);
+  // File reads can finish together or after another edit. Merge with the latest
+  // saved snapshot synchronously, rather than the render that started the read.
+  const projectRef = useRef<Project | null>(null);
   const [missing, setMissing] = useState(false);
   const [tab, setTab] = useState<TabId>(isTabId(initialTab) ? initialTab : "overview");
   const [announce, setAnnounce] = useState("");
+  const [saveState, setSaveState] = useState("local");
+  const [saveError, setSaveError] = useState("");
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [showWelcome, setShowWelcome] = useState(initialCreated);
+
+  useEffect(() => {
+    function handleSync(event: Event) {
+      const detail = (event as CustomEvent<{ projectId: string; source: string; updatedAt?: string }>).detail;
+      if (detail.projectId !== id) return;
+      const current = getProject(id);
+      if (current && detail.updatedAt && detail.updatedAt < current.updatedAt) return;
+      setSaveState(detail.source);
+    }
+    window.addEventListener(DB_SYNC_EVENT, handleSync);
+    return () => window.removeEventListener(DB_SYNC_EVENT, handleSync);
+  }, [id]);
+
+  const selectTab = useCallback((next: TabId) => {
+    const sections = document.querySelector('[data-tour="project-tabs"]');
+    const wasPinned = sections && window.getComputedStyle(sections).position === "sticky" && sections.getBoundingClientRect().top <= 1;
+    setTab(next);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", next);
+    window.history.replaceState(null, "", url);
+    // A section switch from the pinned phone navigation starts at its content.
+    if (wasPinned) window.setTimeout(() => document.getElementById(`panel-${next}`)?.scrollIntoView({ block: "start" }), 0);
+  }, []);
 
   useEffect(() => {
     let active = true;
+    setLoadError(false);
+    setMissing(false);
     // show the local copy right away then swap if cloud has a newer one
     const loaded = getProject(id);
+    projectRef.current = loaded ?? null;
+    setProject(loaded ?? null);
     if (loaded) {
-      setProject(loaded);
       setMissing(false);
     }
     void fetchProjectFromDb(id).then((remote) => {
       if (!active) return;
       if (remote) {
-        setProject(remote);
+        const current = projectRef.current;
+        const next = current && current.id === remote.id && current.updatedAt > remote.updatedAt ? current : remote;
+        projectRef.current = next;
+        setProject(next);
         setMissing(false);
       } else if (!loaded) {
-        setMissing(true);
+        if (isProjectStorageReadable()) setMissing(true);
+        else setLoadError(true);
       }
-    });
+    }).catch(() => { if (active && !loaded) setLoadError(true); });
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, loadAttempt]);
 
   useEffect(() => {
     if (isTabId(initialTab)) setTab(initialTab);
@@ -102,31 +144,55 @@ export function ProjectDashboard({
     () => (project ? detectBottlenecks(project.roadmap.steps) : []),
     [project],
   );
-  const upcoming = project ? nextAction(project.roadmap.steps) : undefined;
-  const approved = project?.roadmap.steps.filter((step) => step.status === "approved").length ?? 0;
-  const total = project?.roadmap.steps.length ?? 0;
   const isHarborKitchen = project?.config.name === "Harbor Kitchen";
 
   function persist(next: Project, message: string) {
+    projectRef.current = next;
     setProject(next);
     setAnnounce(message);
+    setSaveError("");
+  }
+
+  function latestProject() {
+    const current = projectRef.current;
+    if (!current || current.id !== id) throw new Error("The project changed before the action finished.");
+    return current;
+  }
+
+  function mutate(action: () => Project, message: string) {
+    try {
+      persist(action(), message);
+      return true;
+    } catch {
+      setSaveError("Your change could not be saved. Browser storage may be full or unavailable. Free up storage and try the action again.");
+      return false;
+    }
   }
 
   const handleResetDemo = useCallback(() => {
-    const fresh = resetHarborKitchen(project?.id);
-    setProject(fresh);
-    setAnnounce("Harbor Kitchen demonstration reset to initial bottleneck state.");
+    try {
+      const fresh = resetHarborKitchen(project?.id);
+      projectRef.current = fresh;
+      setProject(fresh);
+      setSaveError("");
+      setAnnounce("Harbor Kitchen demonstration reset to initial bottleneck state.");
+    } catch {
+      setSaveError("The demonstration could not be reset. Check browser storage and try again.");
+    }
   }, [project?.id]);
 
   const handleBeforeTourStart = useCallback(() => {
-    setTab("graph");
+    selectTab("graph");
     if (!project) return;
     const health = project.roadmap.steps.find((s) => s.id === "health-permit");
     if (isHarborKitchen && health && health.status === "approved") {
-      const fresh = resetHarborKitchen(project.id);
-      setProject(fresh);
+      try {
+        const fresh = resetHarborKitchen(project.id);
+        projectRef.current = fresh;
+        setProject(fresh);
+      } catch { setSaveError("The demonstration could not be reset. Check browser storage and try again."); }
     }
-  }, [isHarborKitchen, project]);
+  }, [isHarborKitchen, project, selectTab]);
 
   if (missing) {
     return (
@@ -151,84 +217,60 @@ export function ProjectDashboard({
     return (
       <AppShell>
         <main id="main" className="mx-auto max-w-xl px-4 py-16">
-          <p>{t("common.loading")}</p>
+          {loadError ? <div role="alert"><p>We could not load this project. Check your connection and allow browser storage, then try again.</p><button className="button secondary mt-4" type="button" onClick={() => setLoadAttempt((value) => value + 1)}>Try again</button></div> : <p role="status">{t("common.loading")}</p>}
         </main>
       </AppShell>
     );
   }
 
-  const occupantLoad = estimateOccupantLoad(project.config.squareFootage, project.config.occupancy);
+  const summary = getDashboardSummary(project, bottlenecks);
+
+  function openSection(next: TabId, targetId?: string) {
+    selectTab(next);
+    window.setTimeout(() => {
+      const target = document.getElementById(targetId ?? `panel-${next}`);
+      target?.focus();
+      target?.scrollIntoView({ block: "start" });
+    }, 0);
+  }
+
+  function openMissingDocuments() {
+    if (!project) return;
+    const { roadmap, documents } = project;
+    const firstMissing = roadmap.steps.find((step) => step.documents.some((requirement) => requirement.required && !documents.some((document) => document.stepId === step.id && document.requirementId === requirement.id)));
+    openSection("documents", firstMissing ? `documents-${firstMissing.id}` : undefined);
+  }
+
+  function dismissWelcome() {
+    setShowWelcome(false);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("created");
+    window.history.replaceState(null, "", url);
+    document.getElementById("next-action-title")?.focus();
+  }
 
   return (
-    <AppShell eyebrow="Interactive demonstration project">
+    <AppShell eyebrow={isHarborKitchen ? "Interactive demonstration project" : "Project workspace"}>
       <ProductTour
         activeTab={tab}
-        setActiveTab={setTab}
+        setActiveTab={(value) => { if (isTabId(value)) selectTab(value); }}
         forceStart={initialTour}
+        autoStart={initialTab === "graph"}
         onBeforeStart={handleBeforeTourStart}
       />
-      <main id="main" className="mx-auto max-w-6xl px-4 py-6">
-        <div className="sr-only" aria-live="polite">
+      <main id="main" className="project-workspace mx-auto max-w-6xl px-4 py-6">
+        <div className="sr-only" role="status" aria-live="polite">
           {announce}
         </div>
-        <section className="panel mb-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="eyebrow">{t("dashboard.eyebrow")}</p>
-                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--line)] bg-[var(--paper)] px-2.5 py-0.5 text-xs font-semibold text-[var(--ok)]">
-                  <Database size={12} aria-hidden />
-                  {t("common.dbSaved")}
-                </span>
-              </div>
-              <h1 className="mt-1 font-serif text-3xl text-[var(--navy)] sm:text-4xl">
-                {project.config.name}
-              </h1>
-              <p className="mt-2 max-w-2xl text-[var(--muted)]">
-                {project.config.squareFootage.toLocaleString()} sq ft · occupant load {occupantLoad} ·{" "}
-                {t("dashboard.stepsApproved", { approved, total })}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              {isHarborKitchen ? (
-                <button
-                  type="button"
-                  onClick={handleResetDemo}
-                  className="button secondary"
-                >
-                  <RotateCcw size={15} aria-hidden />
-                  {t("common.resetDemo")}
-                </button>
-              ) : null}
-              <div className="rounded-lg border border-[var(--line)] bg-[var(--paper)] px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-                  {t("common.nextAction")}
-                </p>
-                <p className="mt-1 font-semibold text-[var(--navy)]">
-                  {upcoming
-                    ? t("dashboard.nextActionWork", {
-                        title: upcoming.shortTitle,
-                        department: upcoming.department,
-                      })
-                    : t("dashboard.allApproved")}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--paper-2)]" aria-hidden>
-            <div
-              className="h-full rounded-full bg-[var(--ok)]"
-              style={{ width: `${total ? Math.round((approved / total) * 100) : 0}%` }}
-            />
-          </div>
-          <p className="sr-only">{t("dashboard.stepsApproved", { approved, total })}</p>
-        </section>
+        {saveError ? <p className="panel mb-4 text-[var(--danger)]" role="alert">{saveError}</p> : null}
+        {saveState === "error" ? <div className="panel panel-warn mb-4" role="status"><p>Saved in this browser. Cloud sync failed. Keep using this device or retry to save across devices.</p><button type="button" className="button secondary mt-3" onClick={() => void syncProjectToSupabase(project)}>Retry cloud sync</button></div> : null}
+        <ProjectHeader project={project} summary={summary} saveState={saveState} onReset={isHarborKitchen ? handleResetDemo : undefined} />
 
         <div
           role="tablist"
           aria-label={t("dashboard.tabsLabel")}
           data-tour="project-tabs"
-          className="mb-4 flex gap-2 overflow-x-auto pb-1"
+          className="project-sections"
         >
           {TABS.map((item) => {
             const Icon = item.icon;
@@ -243,14 +285,14 @@ export function ProjectDashboard({
                 aria-controls={`panel-${item.id}`}
                 tabIndex={selected ? 0 : -1}
                 className={`tab ${selected ? "is-active" : ""}`}
-                onClick={() => setTab(item.id)}
+                onClick={() => selectTab(item.id)}
                 onKeyDown={(event) => {
-                  if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+                  if (!["ArrowRight", "ArrowLeft", "Home", "End"].includes(event.key)) return;
                   event.preventDefault();
                   const index = TABS.findIndex((entry) => entry.id === tab);
                   const delta = event.key === "ArrowRight" ? 1 : -1;
-                  const next = TABS[(index + delta + TABS.length) % TABS.length];
-                  setTab(next.id);
+                  const next = event.key === "Home" ? TABS[0] : event.key === "End" ? TABS[TABS.length - 1] : TABS[(index + delta + TABS.length) % TABS.length];
+                  selectTab(next.id);
                   document.getElementById(`tab-${next.id}`)?.focus();
                 }}
               >
@@ -261,18 +303,14 @@ export function ProjectDashboard({
           })}
         </div>
 
-        <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`}>
-          {tab === "overview" ? <RoadmapOverview project={project} bottlenecks={bottlenecks} /> : null}
+        <div id={`panel-${tab}`} role="tabpanel" tabIndex={0} aria-labelledby={`tab-${tab}`} className="project-section-panel min-w-0">
+          {tab === "overview" ? <>{showWelcome ? <RoadmapWelcome summary={summary} onOpenTimeline={() => openSection("timeline")} onDismiss={dismissWelcome} /> : null}<ProjectPriorities project={project} summary={summary} onOpenStep={(step) => openSection("timeline", `step-${step.id}`)} onOpenDocuments={openMissingDocuments} onOpenTimeline={() => openSection("timeline")} /><RoadmapOverview project={project} bottlenecks={bottlenecks} /></> : null}
           {tab === "graph" ? (
             <PermitGraph
               project={project}
               bottlenecks={bottlenecks}
               onStatusChange={(stepId: string, status: PermitStepStatus) => {
-                const next = updateStepStatus(project, stepId, status);
-                persist(
-                  next,
-                  `${next.roadmap.steps.find((step) => step.id === stepId)?.shortTitle} set to ${status.replace("_", " ")}`,
-                );
+                return mutate(() => updateStepStatus(latestProject(), stepId, status), `${project.roadmap.steps.find((step) => step.id === stepId)?.shortTitle} set to ${status.replace("_", " ")}`);
               }}
             />
           ) : null}
@@ -281,11 +319,7 @@ export function ProjectDashboard({
               project={project}
               bottlenecks={bottlenecks}
               onStatusChange={(stepId: string, status: PermitStepStatus) => {
-                const next = updateStepStatus(project, stepId, status);
-                persist(
-                  next,
-                  `${next.roadmap.steps.find((step) => step.id === stepId)?.shortTitle} set to ${status.replace("_", " ")}`,
-                );
+                mutate(() => updateStepStatus(latestProject(), stepId, status), `${project.roadmap.steps.find((step) => step.id === stepId)?.shortTitle} set to ${status.replace("_", " ")}`);
               }}
             />
           ) : null}
@@ -293,10 +327,10 @@ export function ProjectDashboard({
             <DocumentVault
               project={project}
               onUpload={(document: UploadedDocument) => {
-                persist(upsertDocument(project, document), `${document.name} uploaded`);
+                persist(upsertDocument(latestProject(), document), `${document.name} attached`);
               }}
               onRemove={(documentId: string) => {
-                persist(removeDocument(project, documentId), "Document removed");
+                persist(removeDocument(latestProject(), documentId), "Document removed");
               }}
             />
           ) : null}
@@ -305,7 +339,7 @@ export function ProjectDashboard({
             <InspectionChecklists
               items={project.inspections}
               onToggle={(itemId, completed) => {
-                persist(toggleInspection(project, itemId, completed), "Inspection checklist updated");
+                mutate(() => toggleInspection(latestProject(), itemId, completed), "Inspection checklist updated");
               }}
             />
           ) : null}

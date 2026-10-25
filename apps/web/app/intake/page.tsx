@@ -1,21 +1,22 @@
 "use client";
 
-import Link from "next/link";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CheckCircle2, Save, Sparkles } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { useA11y } from "@/lib/a11y";
 import { createProject, saveProject } from "@/lib/store";
 import { useAuth } from "@/lib/supabase";
+import { validateIntakeStep, type IntakeDraft, type IntakeErrors, type IntakeField } from "@/lib/intakeValidation";
 import {
   TRADE_LABELS,
   type OccupancyGroup,
   type ProjectConfig,
+  type Project,
   type Trade,
   type ZoneDistrict,
 } from "@/lib/types";
-import { DEFAULT_STATE, US_STATES } from "@/fixtures/states";
+import { DEFAULT_STATE, US_STATES, stateName } from "@/fixtures/states";
 import { USE_CASE_GROUPS, USE_CASES, applyUseCase, findUseCase } from "@/fixtures/useCases";
 
 const SPACE_LABELS: Record<OccupancyGroup, string> = {
@@ -132,11 +133,18 @@ const initial: ProjectConfig = {
 };
 
 export default function IntakePage() {
-  return (
-    <Suspense fallback={null}>
-      <IntakeForm />
-    </Suspense>
-  );
+  return <Suspense fallback={<p className="mx-auto max-w-2xl px-4 py-8" role="status">Loading project form…</p>}><IntakeForm /></Suspense>;
+}
+
+const STEP_LABELS = ["Project", "Space & work", "Review & build"];
+const FIELD_IDS: Record<IntakeField, string> = { state: "state", useCase: "use-case-choices", squareFootage: "sqft", estimatedValuation: "valuation", name: "name", visitorCount: "visitors", desiredStartDate: "start" };
+
+function asConfig(draft: IntakeDraft): ProjectConfig {
+  return { ...draft, name: draft.name.trim(), squareFootage: Number(draft.squareFootage), estimatedValuation: Number(draft.estimatedValuation), visitorCount: draft.projectType === "public_event" && draft.publicAttendance ? Number(draft.visitorCount ?? 0) : undefined, desiredStartDate: draft.desiredStartDate || undefined };
+}
+
+function FieldError({ field, errors }: { field: IntakeField; errors: IntakeErrors }) {
+  return errors[field] ? <p className="intake-field-error" id={`${field}-error`}>{errors[field]}</p> : null;
 }
 
 function IntakeForm() {
@@ -145,370 +153,175 @@ function IntakeForm() {
   const { user } = useAuth();
   const { t } = useA11y();
   const welcome = searchParams.get("welcome") === "1";
-  const showPresets = Boolean(user?.isDemoJudge);
   const [step, setStep] = useState(1);
-  const [draft, setDraft] = useState<ProjectConfig>(initial);
+  const [draft, setDraft] = useState<IntakeDraft>(initial);
   const [useCaseChosen, setUseCaseChosen] = useState(false);
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState<IntakeErrors>({});
+  const [generationError, setGenerationError] = useState("");
+  const [errorAttempt, setErrorAttempt] = useState(0);
+  const [building, setBuilding] = useState(false);
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftSaved, setDraftSaved] = useState(false);
+  const [draftWarning, setDraftWarning] = useState("");
+  const pendingRef = useRef(false);
+  const createdRef = useRef<{ key: string; project: Project } | null>(null);
+  const draftWriteFailed = useRef(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+  const warningRef = useRef<HTMLDivElement>(null);
+  const initialStepRef = useRef(true);
+  const choice = findUseCase(draft.useCase);
+  const hasErrors = Object.keys(errors).length > 0;
 
   useEffect(() => {
-    const saved = localStorage.getItem("permitpilot:draft");
-    if (!saved) return;
     try {
-      const parsed = JSON.parse(saved) as ProjectConfig & { typeChosen?: boolean };
-      setDraft({ ...initial, ...parsed });
-      if (parsed.useCase) setUseCaseChosen(true);
-    } catch {
-      localStorage.removeItem("permitpilot:draft");
-    }
+      const raw = localStorage.getItem("permitpilot:draft");
+      if (raw) {
+        const saved = JSON.parse(raw);
+        const parsed = saved.version === 2 ? saved.config : saved;
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Invalid draft");
+        const restored = { ...initial, ...parsed } as IntakeDraft;
+        if (typeof restored.name !== "string" || !Array.isArray(restored.trades) || restored.trades.some((trade) => !(trade in TRADE_LABELS)) || !(restored.occupancy in SPACE_LABELS) || !(restored.zone in AREA_LABELS)) throw new Error("Invalid draft fields");
+        setDraft(restored);
+        setUseCaseChosen(Boolean(findUseCase(restored.useCase)));
+        if (saved.version === 2 && [1, 2, 3].includes(saved.step)) setStep(saved.step);
+      }
+    } catch { setDraftWarning("Your saved draft couldn't be read. You can start a new project below."); }
+    setDraftReady(true);
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("permitpilot:draft", JSON.stringify(draft));
-  }, [draft]);
+    if (!draftReady || building) return;
+    try {
+      localStorage.setItem("permitpilot:draft", JSON.stringify({ version: 2, step, config: draft }));
+      setDraftSaved(true);
+      if (draftWriteFailed.current) { setDraftWarning(""); draftWriteFailed.current = false; }
+    } catch {
+      draftWriteFailed.current = true;
+      setDraftSaved(false);
+      setDraftWarning("Your browser couldn't save this draft. Keep this page open while you finish, or free some browser storage and try saving again.");
+    }
+  }, [draft, step, draftReady, building]);
 
-  function toggleTrade(trade: Trade) {
-    setDraft((current) => ({
-      ...current,
-      trades: current.trades.includes(trade)
-        ? current.trades.filter((item) => item !== trade)
-        : [...current.trades, trade],
-    }));
+  useEffect(() => {
+    if (initialStepRef.current) { initialStepRef.current = false; return; }
+    headingRef.current?.focus();
+  }, [step]);
+  useEffect(() => { if (errorAttempt) errorRef.current?.focus(); }, [errorAttempt]);
+
+  function change<K extends keyof IntakeDraft>(field: K, value: IntakeDraft[K]) {
+    setDraft((current) => ({ ...current, [field]: value }));
+    setErrors((current) => { const next = { ...current }; delete next[field as IntakeField]; return next; });
   }
 
-  function applyPreset(presetConfig: ProjectConfig, launchImmediately: boolean) {
-    setError("");
-    setUseCaseChosen(true);
-    setDraft(presetConfig);
-    if (launchImmediately) {
-      const project = createProject({
-        ...presetConfig,
-        desiredStartDate: presetConfig.desiredStartDate || undefined,
-      });
+  function goBack() {
+    setErrors({}); setGenerationError("");
+    if (step > 1) setStep((current) => current - 1);
+    else router.push("/");
+  }
+
+  function saveAndExit() {
+    try {
+      localStorage.setItem("permitpilot:draft", JSON.stringify({ version: 2, step, config: draft }));
+      router.push("/");
+    } catch {
+      draftWriteFailed.current = true;
+      setDraftWarning("Your draft could not be saved. Your answers are still here. Free some browser storage, then use Save & exit again.");
+      window.setTimeout(() => warningRef.current?.focus(), 0);
+    }
+  }
+
+  async function launchProject(config: ProjectConfig) {
+    if (pendingRef.current) return;
+    pendingRef.current = true; setBuilding(true); setErrors({}); setGenerationError("");
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    try {
+      const key = JSON.stringify(config);
+      if (createdRef.current?.key !== key) createdRef.current = { key, project: createProject(config) };
+      const project = createdRef.current.project;
       saveProject(project);
-      localStorage.removeItem("permitpilot:draft");
-      router.push(`/projects/${project.id}?tab=graph`);
-    } else {
-      setStep(3);
+      // Draft cleanup is not part of a successful project save.
+      try { localStorage.removeItem("permitpilot:draft"); } catch { /* Keep the saved roadmap available. */ }
+      router.push(`/projects/${project.id}?tab=overview&created=1`);
+    } catch {
+      setGenerationError("Your roadmap couldn't be saved. Your answers are still here. Free some browser storage, then try Build my checklist again.");
+      setErrorAttempt((attempt) => attempt + 1);
+      pendingRef.current = false; setBuilding(false);
     }
   }
 
   function next() {
-    if (step === 1 && (!draft.state || !useCaseChosen)) {
-      setError(t("intake.errState"));
-      return;
+    if (pendingRef.current || !draftReady) return;
+    for (const currentStep of step === 3 ? [1, 2, 3] : [step]) {
+      const nextErrors = validateIntakeStep(currentStep, draft, useCaseChosen);
+      if (Object.keys(nextErrors).length) { setStep(currentStep); setErrors(nextErrors); setGenerationError(""); setErrorAttempt((attempt) => attempt + 1); return; }
     }
-    if (step === 2 && (draft.squareFootage <= 0 || draft.estimatedValuation < 0)) {
-      setError(t("intake.errSize"));
-      return;
-    }
-    if (step === 3 && !draft.name.trim()) {
-      setError(t("intake.errName"));
-      return;
-    }
-    setError("");
-    if (step < 3) {
-      setStep((value) => value + 1);
-      return;
-    }
-    const project = createProject({
-      ...draft,
-      name: draft.name.trim(),
-      state: draft.state || DEFAULT_STATE,
-      visitorCount: draft.projectType === "public_event" ? draft.visitorCount : undefined,
-      desiredStartDate: draft.desiredStartDate || undefined,
-    });
-    saveProject(project);
-    localStorage.removeItem("permitpilot:draft");
-    router.push(`/projects/${project.id}?tab=graph`);
+    setErrors({}); setGenerationError("");
+    if (step < 3) setStep((current) => current + 1);
+    else void launchProject(asConfig(draft));
   }
+
+  function selectUseCase(id: string) {
+    const option = findUseCase(id);
+    if (!option) return;
+    setUseCaseChosen(true);
+    setDraft((current) => ({ ...applyUseCase(asConfig(current), option), name: current.name, squareFootage: current.squareFootage, estimatedValuation: current.estimatedValuation, visitorCount: current.visitorCount, desiredStartDate: current.desiredStartDate }));
+    setErrors((current) => { const next = { ...current }; delete next.useCase; return next; });
+  }
+
+  function applyPreset(config: ProjectConfig, immediately: boolean) {
+    setErrors({}); setGenerationError(""); setUseCaseChosen(true); setDraft(config);
+    if (immediately) void launchProject(config); else setStep(3);
+  }
+
+  const fieldA11y = (field: IntakeField, hint?: string) => ({ "aria-invalid": Boolean(errors[field]), "aria-describedby": [hint, errors[field] ? `${field}-error` : ""].filter(Boolean).join(" ") || undefined });
 
   return (
     <AppShell eyebrow={welcome ? t("intake.welcomeEyebrow") : t("intake.yourProject")}>
-      <main id="main" className="mx-auto max-w-2xl px-4 py-8">
-        {welcome ? (
-          <section className="panel mb-5">
-            <p className="eyebrow inline-flex items-center gap-1.5">
-              <Sparkles size={14} aria-hidden />
-              {t("intake.aboutMinute")}
-            </p>
-            <h1 className="mt-1 font-serif text-2xl text-[var(--navy)]">
-              {t("intake.welcomeTitle")}
-            </h1>
-            <p className="mt-2 text-sm text-[var(--ink)]">{t("intake.welcomeBody")}</p>
-          </section>
-        ) : null}
-
-        {showPresets ? (
-          <section className="panel mb-5">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="eyebrow inline-flex items-center gap-1.5">
-                  <Sparkles size={14} aria-hidden />
-                  {t("intake.presetsTitle")}
-                </p>
-                <p className="mt-1 text-sm text-[var(--muted)]">{t("intake.presetsBody")}</p>
-              </div>
-            </div>
-            <div className="mt-3 grid gap-2.5 sm:grid-cols-3">
-              {QUICK_PRESETS.map((preset) => (
-                <div
-                  key={preset.id}
-                  className="flex flex-col justify-between rounded-lg border border-[var(--line)] bg-[var(--paper)] p-3"
-                >
-                  <div>
-                    <p className="font-semibold text-[var(--navy)]">{preset.label}</p>
-                    <p className="mt-1 text-xs text-[var(--muted)]">{preset.summary}</p>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    <button
-                      type="button"
-                      className="button primary !min-h-[34px] !px-2.5 text-xs"
-                      onClick={() => applyPreset(preset.config, true)}
-                    >
-                      {t("intake.launch")}
-                    </button>
-                    <button
-                      type="button"
-                      className="button secondary !min-h-[34px] !px-2.5 text-xs"
-                      onClick={() => applyPreset(preset.config, false)}
-                    >
-                      {t("intake.fillForm")}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        <div className="mb-4 flex items-end justify-between gap-3">
-          <div>
-            <p className="eyebrow">{t("intake.stepOf", { step })}</p>
-            <div className="mt-2 flex gap-1" aria-label={t("intake.stepOf", { step })}>
-              {[1, 2, 3].map((value) => (
-                <span
-                  key={value}
-                  className={`h-1.5 w-10 rounded-full ${value <= step ? "bg-[var(--navy)]" : "bg-[var(--line)]"}`}
-                />
-              ))}
-            </div>
-          </div>
-          <Link className="nav-link" href="/">
-            {t("intake.saveExit")}
-          </Link>
-        </div>
-        <div className="panel">
-          {error ? (
-            <div className="demo-banner mb-4 rounded-lg border border-[var(--line)]" role="alert">
-              {error}
-            </div>
-          ) : null}
-          {step === 1 ? (
-            <>
-              <h1 className="font-serif text-3xl text-[var(--navy)]">{t("intake.step1Title")}</h1>
-              <p className="mt-2 text-[var(--muted)]">{t("intake.step1Body")}</p>
-              <div className="field">
-                <label htmlFor="state">{t("intake.whichState")}</label>
-                <select
-                  id="state"
-                  value={draft.state ?? DEFAULT_STATE}
-                  onChange={(event) => setDraft({ ...draft, state: event.target.value })}
-                >
-                  {US_STATES.map((item) => (
-                    <option key={item.code} value={item.code}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="mt-5 space-y-5">
-                {USE_CASE_GROUPS.map((group) => (
-                  <div key={group}>
-                    <p className="text-xs font-bold uppercase tracking-wide text-[var(--seal)]">{group}</p>
-                    <div className="mt-2 grid gap-2">
-                      {USE_CASES.filter((option) => option.group === group).map((option) => (
-                        <button
-                          key={option.id}
-                          type="button"
-                          className={`choice ${useCaseChosen && draft.useCase === option.id ? "selected" : ""}`}
-                          onClick={() => {
-                            setUseCaseChosen(true);
-                            setDraft(applyUseCase(draft, option));
-                          }}
-                        >
-                          <strong>{option.label}</strong>
-                          <span className="mt-1 block text-sm text-[var(--muted)]">{option.detail}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : null}
-          {step === 2 ? (
-            <>
-              <h1 className="font-serif text-3xl text-[var(--navy)]">{t("intake.step2Title")}</h1>
-              <p className="mt-2 text-[var(--muted)]">{t("intake.step2Body")}</p>
-              <div className="field">
-                <label htmlFor="sqft">{t("intake.sqft")}</label>
-                <input
-                  id="sqft"
-                  type="number"
-                  min={1}
-                  max={1000000}
-                  value={draft.squareFootage}
-                  onChange={(event) => setDraft({ ...draft, squareFootage: Number(event.target.value) })}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="occupancy">{t("intake.kindOfSpace")}</label>
-                <select
-                  id="occupancy"
-                  value={draft.occupancy}
-                  onChange={(event) => setDraft({ ...draft, occupancy: event.target.value as OccupancyGroup })}
-                >
-                  {(Object.keys(SPACE_LABELS) as OccupancyGroup[]).map((key) => (
-                    <option key={key} value={key}>
-                      {SPACE_LABELS[key]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="field">
-                <label htmlFor="zone">{t("intake.partOfTown")}</label>
-                <select
-                  id="zone"
-                  value={draft.zone}
-                  onChange={(event) => setDraft({ ...draft, zone: event.target.value as ZoneDistrict })}
-                >
-                  {(Object.keys(AREA_LABELS) as ZoneDistrict[]).map((key) => (
-                    <option key={key} value={key}>
-                      {AREA_LABELS[key]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="field">
-                <label htmlFor="valuation">{t("intake.roughCost")}</label>
-                <input
-                  id="valuation"
-                  type="number"
-                  min={0}
-                  max={10000000}
-                  value={draft.estimatedValuation}
-                  onChange={(event) => setDraft({ ...draft, estimatedValuation: Number(event.target.value) })}
-                />
-              </div>
-              <label className="field-check mt-4">
-                <input
-                  type="checkbox"
-                  checked={Boolean(draft.changingSpace)}
-                  onChange={(event) => setDraft({ ...draft, changingSpace: event.target.checked })}
-                />
-                {t("intake.remodeling")}
-              </label>
-              <fieldset className="mt-4">
-                <legend className="font-semibold">{t("intake.whatWork")}</legend>
-                {(Object.keys(TRADE_LABELS) as Trade[]).map((trade) => (
-                  <label key={trade} className="field-check">
-                    <input
-                      type="checkbox"
-                      checked={draft.trades.includes(trade)}
-                      onChange={() => toggleTrade(trade)}
-                    />
-                    {TRADE_LABELS[trade]}
-                  </label>
-                ))}
+      <main id="main" className="intake-page mx-auto max-w-3xl px-4 py-6 sm:py-8">
+        <div className="intake-topbar"><p className="eyebrow">{welcome ? "Your first project" : "New project"}</p><button type="button" className="intake-save-exit" disabled={building || !draftReady} onClick={saveAndExit}><Save size={15} aria-hidden />{t("intake.saveExit")}</button></div>
+        <nav aria-label="Project setup progress" className="intake-progress">
+          <ol>{STEP_LABELS.map((label, index) => <li key={label} className={index + 1 === step ? "is-current" : index + 1 < step ? "is-complete" : ""} aria-current={index + 1 === step ? "step" : undefined}>
+            {index + 1 < step ? <button type="button" disabled={building} onClick={() => { setErrors({}); setGenerationError(""); setStep(index + 1); }} aria-label={`Back to ${label}`}><span className="intake-step-dot"><Check size={14} aria-hidden /></span><span>{label}</span></button> : <span><span className="intake-step-dot">{index + 1}</span><span>{label}</span></span>}
+          </li>)}</ol>
+        </nav>
+        <div className="intake-save-line"><span>{t("intake.stepOf", { step })}</span><span>{draftSaved ? "Draft saved in this browser" : "Your answers stay here while you work"}</span></div>
+        {draftWarning ? <div ref={warningRef} tabIndex={-1} className="panel panel-warn mb-4 text-sm" role="status"><p>{draftWarning}</p></div> : null}
+        {user?.isDemoJudge && step === 1 ? <details className="intake-presets panel mb-4"><summary><Sparkles size={16} aria-hidden />Try a sample setup</summary><p className="mt-2 text-sm text-[var(--muted)]">Fill the form with an example, or generate its demo checklist immediately.</p><div className="mt-3 grid gap-3 sm:grid-cols-3">{QUICK_PRESETS.map((preset) => <div key={preset.id} className="rounded-lg border border-[var(--line)] p-3"><strong>{preset.label}</strong><p className="mt-1 text-xs text-[var(--muted)]">{preset.summary}</p><div className="mt-3 flex flex-wrap gap-2"><button className="button secondary text-xs" type="button" disabled={building} onClick={() => applyPreset(preset.config, false)}>Fill form</button><button className="button primary text-xs" type="button" disabled={building} onClick={() => applyPreset(preset.config, true)}>Launch roadmap</button></div></div>)}</div></details> : null}
+        <form className="panel intake-form" data-step={step} noValidate aria-busy={building} onSubmit={(event) => { event.preventDefault(); next(); }}>
+          {hasErrors || generationError ? <div ref={errorRef} tabIndex={-1} className="intake-error-summary" role="alert">
+            <p className="font-semibold">{generationError || "Check the highlighted answers to continue."}</p>
+            {hasErrors ? <ul>{Object.entries(errors).map(([field, message]) => <li key={field}><a href={`#${FIELD_IDS[field as IntakeField]}`} onClick={(event) => { event.preventDefault(); document.getElementById(FIELD_IDS[field as IntakeField])?.focus(); }}>{message}</a></li>)}</ul> : null}
+          </div> : null}
+          <fieldset disabled={building || !draftReady} className="min-w-0">
+            <div className="intake-step-heading"><h1 ref={headingRef} tabIndex={-1}>{step === 1 ? t("intake.step1Title") : step === 2 ? t("intake.step2Title") : "Review and name your project"}</h1><p>{step === 1 ? "Choose your state and the closest project type. These answers select the permit checklist." : step === 2 ? "Tell us about the space and planned work. Estimates are fine; they help calculate requirements and fees." : "Check your answers, add a project name, then build your planning checklist."}</p><p className="intake-required-note">{step === 1 ? "State and project type are required." : step === 2 ? "All space fields are required. Work types are optional." : "Project name is required. A start date is optional."}</p></div>
+            {step === 1 ? <>
+              <div className="field"><label htmlFor="state">{t("intake.whichState")}</label><select id="state" required value={draft.state ?? DEFAULT_STATE} {...fieldA11y("state", "state-hint")} onChange={(event) => change("state", event.target.value)}>{US_STATES.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}</select><p id="state-hint" className="intake-hint">Use the state where the project will take place.</p><FieldError field="state" errors={errors} /></div>
+              <fieldset id="use-case-choices" tabIndex={-1} className="intake-project-types" aria-invalid={Boolean(errors.useCase)} aria-describedby={errors.useCase ? "useCase-error" : undefined}><legend>What are you opening, changing or planning?</legend><FieldError field="useCase" errors={errors} />
+                {USE_CASE_GROUPS.map((group) => <div key={group} className="intake-choice-group"><h2>{group}</h2><div className="intake-choice-grid">{USE_CASES.filter((option) => option.group === group).map((option) => <button key={option.id} type="button" aria-pressed={useCaseChosen && draft.useCase === option.id} className={`choice intake-choice ${useCaseChosen && draft.useCase === option.id ? "selected" : ""}`} onClick={() => selectUseCase(option.id)}><span><strong>{option.label}</strong><span className="intake-hint">{option.detail}</span></span>{useCaseChosen && draft.useCase === option.id ? <CheckCircle2 size={18} aria-hidden /> : null}</button>)}</div></div>)}
               </fieldset>
-            </>
-          ) : null}
-          {step === 3 ? (
-            <>
-              <h1 className="font-serif text-3xl text-[var(--navy)]">{t("intake.step3Title")}</h1>
-              <p className="mt-2 text-[var(--muted)]">{t("intake.step3Body")}</p>
-              <div className="field">
-                <label htmlFor="name">{t("intake.projectName")}</label>
-                <input
-                  id="name"
-                  maxLength={120}
-                  value={draft.name}
-                  onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-                  placeholder="e.g., Maya’s Home Bakery"
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="start">{t("intake.startDate")}</label>
-                <input
-                  id="start"
-                  type="date"
-                  value={draft.desiredStartDate ?? ""}
-                  onChange={(event) => setDraft({ ...draft, desiredStartDate: event.target.value })}
-                />
-              </div>
-              {draft.foodPreparation || findUseCase(draft.useCase)?.group === "Food" ? (
-                <label className="field-check">
-                  <input
-                    type="checkbox"
-                    checked={draft.homeBased}
-                    onChange={(event) => setDraft({ ...draft, homeBased: event.target.checked })}
-                  />
-                  {t("intake.homeBased")}
-                </label>
-              ) : null}
-              {draft.projectType === "public_event" ? (
-                <>
-                  <label className="field-check">
-                    <input
-                      type="checkbox"
-                      checked={draft.foodPreparation}
-                      onChange={(event) => setDraft({ ...draft, foodPreparation: event.target.checked })}
-                    />
-                    {t("intake.foodServed")}
-                  </label>
-                  <label className="field-check">
-                    <input
-                      type="checkbox"
-                      checked={draft.publicAttendance}
-                      onChange={(event) => setDraft({ ...draft, publicAttendance: event.target.checked })}
-                    />
-                    {t("intake.publicAttend")}
-                  </label>
-                  <div className="field">
-                    <label htmlFor="visitors">{t("intake.attendance")}</label>
-                    <input
-                      id="visitors"
-                      type="number"
-                      min={0}
-                      value={draft.visitorCount ?? 0}
-                      onChange={(event) => setDraft({ ...draft, visitorCount: Number(event.target.value) })}
-                    />
-                  </div>
-                </>
-              ) : null}
-              <div className="mt-4 rounded-lg border border-[var(--line)] bg-[var(--paper)] p-3">
-                <strong>{t("intake.beforeTitle")}</strong>
-                <p className="mt-1 text-sm text-[var(--muted)]">
-                  {t("intake.beforeBody", { state: draft.state || "NH" })}
-                </p>
-              </div>
-            </>
-          ) : null}
-          <div className="mt-6 flex flex-wrap justify-between gap-3">
-            <button
-              className="button secondary"
-              type="button"
-              onClick={() => (step > 1 ? setStep((value) => value - 1) : router.push("/"))}
-            >
-              <ArrowLeft size={17} aria-hidden /> {t("intake.back")}
-            </button>
-            <button className="button primary" type="button" onClick={next}>
-              {step === 3 ? t("intake.build") : t("intake.continue")}
-              <ArrowRight size={17} aria-hidden />
-            </button>
-          </div>
-        </div>
+            </> : null}
+            {step === 2 ? <>
+              <fieldset className="intake-field-group"><legend>About the space</legend><div className="intake-field-grid">
+                <div className="field"><label htmlFor="sqft">{t("intake.sqft")}</label><input id="sqft" type="number" inputMode="decimal" step="any" min={0} max={1000000} required value={draft.squareFootage} {...fieldA11y("squareFootage", "sqft-hint")} onChange={(event) => change("squareFootage", event.target.value)} /><p id="sqft-hint" className="intake-hint">An approximate area is fine.</p><FieldError field="squareFootage" errors={errors} /></div>
+                <div className="field"><label htmlFor="valuation">{t("intake.roughCost")}</label><input id="valuation" type="number" inputMode="decimal" step="any" min={0} max={10000000} required value={draft.estimatedValuation} {...fieldA11y("estimatedValuation", "valuation-hint")} onChange={(event) => change("estimatedValuation", event.target.value)} /><p id="valuation-hint" className="intake-hint">Enter 0 if no construction or trade work is planned.</p><FieldError field="estimatedValuation" errors={errors} /></div>
+                <div className="field"><label htmlFor="occupancy">{t("intake.kindOfSpace")}</label><select id="occupancy" required value={draft.occupancy} onChange={(event) => change("occupancy", event.target.value as OccupancyGroup)}>{(Object.keys(SPACE_LABELS) as OccupancyGroup[]).map((key) => <option key={key} value={key}>{SPACE_LABELS[key]}</option>)}</select></div>
+                <div className="field"><label htmlFor="zone">{t("intake.partOfTown")}</label><select id="zone" required value={draft.zone} onChange={(event) => change("zone", event.target.value as ZoneDistrict)}>{(Object.keys(AREA_LABELS) as ZoneDistrict[]).map((key) => <option key={key} value={key}>{AREA_LABELS[key]}</option>)}</select></div>
+              </div></fieldset>
+              <fieldset className="intake-field-group"><legend>Work and services</legend><label className="intake-check"><input type="checkbox" checked={Boolean(draft.changingSpace)} onChange={(event) => change("changingSpace", event.target.checked)} /><span>{t("intake.remodeling")}</span></label><p className="intake-hint">Select all work that applies. Suggested work types are preselected for your project; uncheck any you do not plan.</p><div className="intake-trade-grid">{(Object.keys(TRADE_LABELS) as Trade[]).map((trade) => <label key={trade} className={`intake-check ${draft.trades.includes(trade) ? "is-checked" : ""}`}><input type="checkbox" checked={draft.trades.includes(trade)} onChange={() => change("trades", draft.trades.includes(trade) ? draft.trades.filter((item) => item !== trade) : [...draft.trades, trade])} /><span>{TRADE_LABELS[trade]}</span></label>)}</div></fieldset>
+            </> : null}
+            {step === 3 ? <>
+              <div className="field"><label htmlFor="name">{t("intake.projectName")}</label><input id="name" required maxLength={120} autoComplete="off" value={draft.name} {...fieldA11y("name", "name-hint")} onChange={(event) => change("name", event.target.value)} placeholder="e.g., Maya’s Home Bakery" /><p id="name-hint" className="intake-hint">Choose a name you will recognize in your project list.</p><FieldError field="name" errors={errors} /></div>
+              <div className="field"><label htmlFor="start">{t("intake.startDate")}</label><input id="start" type="date" value={draft.desiredStartDate ?? ""} {...fieldA11y("desiredStartDate", "start-hint")} onChange={(event) => change("desiredStartDate", event.target.value)} /><p id="start-hint" className="intake-hint">Starts the estimated schedule. Leave blank to plan from today; this is not a filing deadline.</p><FieldError field="desiredStartDate" errors={errors} /></div>
+              {draft.foodPreparation || choice?.group === "Food" ? <label className="intake-check mt-4"><input type="checkbox" checked={draft.homeBased} onChange={(event) => change("homeBased", event.target.checked)} /><span>{t("intake.homeBased")}</span></label> : null}
+              {draft.projectType === "public_event" ? <fieldset className="intake-field-group"><legend>Event details</legend><label className="intake-check"><input type="checkbox" checked={draft.foodPreparation} onChange={(event) => change("foodPreparation", event.target.checked)} /><span>{t("intake.foodServed")}</span></label><label className="intake-check"><input type="checkbox" checked={draft.publicAttendance} aria-controls="event-attendance" aria-expanded={draft.publicAttendance} onChange={(event) => { change("publicAttendance", event.target.checked); setErrors((current) => { const next = { ...current }; delete next.visitorCount; return next; }); }} /><span>{t("intake.publicAttend")}</span></label>{draft.publicAttendance ? <div className="field intake-conditional" id="event-attendance"><label htmlFor="visitors">{t("intake.attendance")}</label><input id="visitors" type="number" inputMode="numeric" step={1} min={0} required value={draft.visitorCount ?? ""} {...fieldA11y("visitorCount", "visitors-hint")} onChange={(event) => change("visitorCount", event.target.value)} /><p id="visitors-hint" className="intake-hint">Use your best estimate of the number of visitors.</p><FieldError field="visitorCount" errors={errors} /></div> : null}</fieldset> : null}
+              <section className="intake-review" aria-labelledby="intake-review-title"><div className="intake-review-heading"><h2 id="intake-review-title">Your answers</h2><button type="button" className="intake-edit" onClick={() => { setErrors({}); setStep(1); }}>Edit project type</button></div><dl><div><dt>Project</dt><dd>{choice?.label || "Not selected"} · {stateName(draft.state)}</dd></div><div><dt>Space</dt><dd>{Number(draft.squareFootage).toLocaleString()} sq ft · {SPACE_LABELS[draft.occupancy]} · {AREA_LABELS[draft.zone]}</dd></div><div><dt>Estimated work cost</dt><dd>${Number(draft.estimatedValuation).toLocaleString()}</dd></div><div><dt>Work types</dt><dd>{draft.trades.length ? draft.trades.map((trade) => TRADE_LABELS[trade]).join(", ") : "None selected"}</dd></div></dl><button type="button" className="intake-edit" onClick={() => { setErrors({}); setStep(2); }}>Edit space and work</button></section>
+              <aside className="intake-build-note"><h2>What happens next</h2><p>We’ll save a roadmap with permit steps, required documents, estimated fees and planning dates based on these answers.</p><p>You’ll see which step to review first and which permits depend on earlier approvals. Nothing is sent to a permit office.</p></aside>
+            </> : null}
+            <div className="intake-actions"><button className="button secondary" type="button" onClick={goBack}><ArrowLeft size={17} aria-hidden />{t("intake.back")}</button><button className="button primary" type="submit" disabled={building || !draftReady}>{building ? "Building your roadmap…" : step === 3 ? t("intake.build") : t("intake.continue")}<ArrowRight size={17} aria-hidden /></button></div>
+          </fieldset>
+          <p className="intake-build-status" role="status">{building ? "Building and saving your roadmap… You’ll open its Roadmap overview next." : ""}</p>
+        </form>
       </main>
     </AppShell>
   );

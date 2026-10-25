@@ -45,13 +45,17 @@ export function requestProductTour(): void {
 }
 
 export function isTourComplete(): boolean {
-  if (typeof window === "undefined" || typeof window.localStorage === "undefined") return false;
-  return window.localStorage.getItem(TOUR_STORAGE_KEY) === "done";
+  try {
+    if (typeof window === "undefined" || typeof window.localStorage === "undefined") return false;
+    return window.localStorage.getItem(TOUR_STORAGE_KEY) === "done";
+  } catch { return false; }
 }
 
 export function markTourComplete(): void {
-  if (typeof window === "undefined" || typeof window.localStorage === "undefined") return;
-  window.localStorage.setItem(TOUR_STORAGE_KEY, "done");
+  try {
+    if (typeof window === "undefined" || typeof window.localStorage === "undefined") return;
+    window.localStorage.setItem(TOUR_STORAGE_KEY, "done");
+  } catch { /* Closing the guide must still work without browser storage. */ }
 }
 
 function clamp(value: number, min: number, max: number): number {

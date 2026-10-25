@@ -26,9 +26,11 @@ export function FeeSummary({
           ? `These numbers are a planning estimate from your ${config.squareFootage} sq ft ${PROJECT_TYPE_LABELS[config.projectType].toLowerCase()} and $${config.estimatedValuation.toLocaleString()} valuation. They are not a bill.`
           : `Calculated from ${config.squareFootage.toLocaleString()} sq ft, ${PROJECT_TYPE_LABELS[config.projectType].toLowerCase()}, and estimated valuation of ${formatCurrency(config.estimatedValuation)}. Demonstration rates only.`}
       </p>
-      <FeeTable caption="Base departmental fees" items={baseItems} />
-      <FeeTable caption="Surcharges" items={surchargeItems} />
-      <dl className="mt-4 grid gap-2 border-t border-[var(--line)] pt-4 sm:grid-cols-3">
+      <dl className="mt-4 grid grid-cols-2 gap-2 border-t border-[var(--line)] pt-4 sm:grid-cols-3">
+        <div className="col-span-2 rounded-lg border-2 border-[var(--navy)] p-3 sm:col-span-1">
+          <dt className="text-sm text-[var(--muted)]">Estimated total</dt>
+          <dd className="font-serif text-2xl text-[var(--navy)]">{formatCurrency(fees.total)}</dd>
+        </div>
         <div className="rounded-lg bg-[var(--paper)] p-3">
           <dt className="text-sm text-[var(--muted)]">Base fees</dt>
           <dd className="font-serif text-2xl text-[var(--navy)]">{formatCurrency(fees.baseFees)}</dd>
@@ -37,11 +39,10 @@ export function FeeSummary({
           <dt className="text-sm text-[var(--muted)]">Surcharges</dt>
           <dd className="font-serif text-2xl text-[var(--navy)]">{formatCurrency(fees.surcharges)}</dd>
         </div>
-        <div className="rounded-lg border-2 border-[var(--navy)] p-3">
-          <dt className="text-sm text-[var(--muted)]">Estimated total</dt>
-          <dd className="font-serif text-2xl text-[var(--navy)]">{formatCurrency(fees.total)}</dd>
-        </div>
       </dl>
+      <p className="mt-3 text-sm text-[var(--muted)]">Planning estimate, not a bill. Confirm current fees with each department before applying.</p>
+      <FeeTable caption="Base departmental fees" items={baseItems} />
+      <FeeTable caption="Surcharges" items={surchargeItems} />
       <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-[var(--muted)]">
         {fees.notes.map((note) => (
           <li key={note}>{note}</li>
@@ -60,8 +61,14 @@ function FeeTable({
 }) {
   if (items.length === 0) return null;
   return (
-    <div className="mt-4 overflow-x-auto">
-      <table className="fee-table">
+    <div className="mt-4 min-w-0">
+      <div className="sm:hidden">
+        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">{caption}</h3>
+        <dl className="space-y-2">
+          {items.map((item) => <div key={item.id} className="rounded-lg border border-[var(--line)] bg-[var(--paper)] p-3"><dt className="break-words font-semibold text-[var(--navy)]">{item.label}</dt><dd className="mt-1 break-words text-sm text-[var(--muted)]">{item.department} · {item.basis}</dd><dd className="mt-2 font-semibold"><span className="sr-only">Amount: </span>{formatCurrency(item.amount)}</dd></div>)}
+        </dl>
+      </div>
+      <table className="fee-table hidden sm:table">
         <caption className="mb-2 text-left text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
           {caption}
         </caption>

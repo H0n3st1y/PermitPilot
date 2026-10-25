@@ -24,6 +24,7 @@ export function A11yProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       try {
@@ -39,6 +40,7 @@ export function A11yProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem(STORAGE_KEY);
       }
     }
+    } catch { /* Preferences still work when browser storage is unavailable. */ }
     setHydrated(true);
   }, []);
 
@@ -48,7 +50,8 @@ export function A11yProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.dataset.plain = plainLanguage ? "true" : "false";
     document.documentElement.lang = locale;
     document.documentElement.dir = LOCALE_META[locale].dir;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ highContrast, plainLanguage, locale }));
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ highContrast, plainLanguage, locale })); }
+    catch { /* Keep this session usable without persistent preferences. */ }
   }, [highContrast, plainLanguage, locale, hydrated]);
 
   const t = useCallback(

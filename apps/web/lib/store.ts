@@ -112,10 +112,10 @@ export function sampleProject(now = new Date(), fixedId?: string): Project {
 }
 
 function readIndex(): StoredProjectMeta[] {
-  if (typeof localStorage === "undefined") return [];
-  const raw = localStorage.getItem(PROJECT_INDEX_KEY);
-  if (!raw) return [];
   try {
+    if (typeof localStorage === "undefined") return [];
+    const raw = localStorage.getItem(PROJECT_INDEX_KEY);
+    if (!raw) return [];
     return JSON.parse(raw) as StoredProjectMeta[];
   } catch {
     return [];
@@ -128,7 +128,7 @@ function writeIndex(entries: StoredProjectMeta[]): void {
 }
 
 function findLocalProjectByName(name: string): Project | undefined {
-  if (typeof localStorage === "undefined") return undefined;
+  if (!isProjectStorageReadable()) return undefined;
   for (const meta of readIndex()) {
     const loaded = getProject(meta.id);
     if (loaded?.config.name === name) return loaded;
@@ -193,11 +193,11 @@ export async function workspaceAfterAuth(): Promise<{
   };
 }
 
-function notifyDbSync(projectId: string, source: "supabase" | "local"): void {
+function notifyDbSync(projectId: string, source: "supabase" | "local" | "syncing" | "error", updatedAt?: string): void {
   if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") return;
   window.dispatchEvent(
     new CustomEvent(DB_SYNC_EVENT, {
-      detail: { projectId, source, timestamp: new Date().toISOString() },
+      detail: { projectId, source, updatedAt, timestamp: new Date().toISOString() },
     }),
   );
 }
@@ -206,15 +206,15 @@ export async function syncProjectToSupabase(project: Project): Promise<boolean> 
   // save locally even if the cloud write fails
   const supabase = getSupabaseClient();
   const user = getCurrentUser();
-  if (!supabase) {
-    notifyDbSync(project.id, "local");
+  if (!supabase || user?.mode !== "supabase") {
+    notifyDbSync(project.id, "local", project.updatedAt);
     return false;
   }
 
   const row = {
     id: project.id,
-    user_id: user?.mode === "supabase" ? user.id : null,
-    owner_email: user?.email ?? null,
+    user_id: user.id,
+    owner_email: user.email,
     name: project.config.name,
     config: project.config,
     roadmap: project.roadmap,
@@ -225,12 +225,17 @@ export async function syncProjectToSupabase(project: Project): Promise<boolean> 
     updated_at: project.updatedAt,
   };
 
-  const { error } = await supabase.from("projects").upsert(row, { onConflict: "id" });
-  if (!error) {
-    notifyDbSync(project.id, "supabase");
-    return true;
+  notifyDbSync(project.id, "syncing", project.updatedAt);
+  try {
+    const { error } = await supabase.from("projects").upsert(row, { onConflict: "id" });
+    if (!error) {
+      notifyDbSync(project.id, "supabase", project.updatedAt);
+      return true;
+    }
+  } catch {
+    // Network failures still leave the saved browser copy available for retry.
   }
-  notifyDbSync(project.id, "local");
+  notifyDbSync(project.id, "error", project.updatedAt);
   return false;
 }
 
@@ -252,13 +257,33 @@ export function saveProject(project: Project): void {
 }
 
 export function getProject(id: string): Project | null {
-  if (typeof localStorage === "undefined") return null;
-  const raw = localStorage.getItem(`${PROJECT_PREFIX}${id}`);
-  if (!raw) return null;
   try {
+    if (typeof localStorage === "undefined") return null;
+    const raw = localStorage.getItem(`${PROJECT_PREFIX}${id}`);
+    if (!raw) return null;
     return JSON.parse(raw) as Project;
   } catch {
     return null;
+  }
+}
+
+export function isProjectStorageReadable(): boolean {
+  try {
+    if (typeof localStorage === "undefined") return false;
+    localStorage.getItem(PROJECT_INDEX_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function cacheCloudProject(project: Project): void {
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(`${PROJECT_PREFIX}${project.id}`, JSON.stringify(project));
+    }
+  } catch {
+    // A readable cloud project must remain available when browser caching is blocked.
   }
 }
 
@@ -289,18 +314,21 @@ function rowToProject(row: SupabaseProjectRow): Project {
 export async function fetchProjectFromDb(id: string): Promise<Project | null> {
   // cloud first then the browser copy
   const supabase = getSupabaseClient();
-  if (supabase) {
+  const user = getCurrentUser();
+  if (supabase && user?.mode === "supabase") {
     const { data, error } = await supabase
       .from("projects")
       .select("id, config, roadmap, documents, inspections, fees, created_at, updated_at")
       .eq("id", id)
+      .eq("user_id", user.id)
       .maybeSingle();
 
     if (!error && data) {
       const project = rowToProject(data as SupabaseProjectRow);
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem(`${PROJECT_PREFIX}${project.id}`, JSON.stringify(project));
-      }
+      const local = getProject(id);
+      if (local && local.updatedAt > project.updatedAt) return local;
+      cacheCloudProject(project);
+      notifyDbSync(project.id, "supabase", project.updatedAt);
       return project;
     }
   }
@@ -308,7 +336,7 @@ export async function fetchProjectFromDb(id: string): Promise<Project | null> {
 }
 
 export function listLocalProjectsForCurrentUser(): Project[] {
-  if (typeof localStorage === "undefined") return [];
+  if (!isProjectStorageReadable()) return [];
   const user = getCurrentUser();
   const index = readIndex();
   const projects: Project[] = [];
@@ -341,17 +369,14 @@ export async function listUserProjects(): Promise<Project[]> {
   const local = listLocalProjectsForCurrentUser();
   const supabase = getSupabaseClient();
   const user = getCurrentUser();
-  if (!supabase) return local;
+  if (!supabase || user?.mode !== "supabase") return local;
 
-  let query = supabase
+  const query = supabase
     .from("projects")
     .select("id, config, roadmap, documents, inspections, fees, created_at, updated_at")
     .order("updated_at", { ascending: false })
-    .limit(20);
-
-  if (user?.email) {
-    query = query.eq("owner_email", user.email);
-  }
+    .limit(20)
+    .eq("user_id", user.id);
 
   const { data, error } = await query;
   if (error || !data) return local;
@@ -360,9 +385,7 @@ export async function listUserProjects(): Promise<Project[]> {
   for (const row of data as SupabaseProjectRow[]) {
     const project = rowToProject(row);
     merged.set(project.id, project);
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(`${PROJECT_PREFIX}${project.id}`, JSON.stringify(project));
-    }
+    cacheCloudProject(project);
   }
   for (const item of local) {
     if (!merged.has(item.id)) merged.set(item.id, item);
@@ -483,8 +506,12 @@ export function seedMockAccountWorkspace(): {
 }
 
 export function getLastProjectId(): string | null {
-  if (typeof localStorage === "undefined") return null;
-  return localStorage.getItem(LAST_KEY);
+  try {
+    if (typeof localStorage === "undefined") return null;
+    return localStorage.getItem(LAST_KEY);
+  } catch {
+    return null;
+  }
 }
 
 export function updateStepStatus(project: Project, stepId: string, status: PermitStepStatus): Project {

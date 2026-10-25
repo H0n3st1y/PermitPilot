@@ -2,7 +2,7 @@
   "name": "permitpilot",
   "private": true,
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12"
   },
   "scripts": {
     "setup": "node scripts/setup.mjs",

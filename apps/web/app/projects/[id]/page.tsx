@@ -8,10 +8,10 @@ export default function ProjectPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string; tour?: string }>;
+  searchParams: Promise<{ tab?: string; tour?: string; created?: string }>;
 }) {
   // next 15 gives params as a promise now
   const { id } = use(params);
-  const { tab, tour } = use(searchParams);
-  return <ProjectDashboard id={id} initialTab={tab} initialTour={tour === "1"} />;
+  const { tab, tour, created } = use(searchParams);
+  return <ProjectDashboard id={id} initialTab={tab} initialTour={tour === "1"} initialCreated={created === "1"} />;
 }

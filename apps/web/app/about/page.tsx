@@ -39,8 +39,9 @@ export default function AboutPage() {
           <section>
             <h2 className="font-serif text-2xl text-[var(--navy)]">Fees and files</h2>
             <p className="mt-2 text-[var(--muted)]">
-              Fee totals are estimates from demonstration rates. Uploaded files stay in this browser session and are
-              limited to PDF, PNG, JPEG, and WebP files of 10 MB or less.
+              Fee totals are estimates from demonstration rates. Attachments are limited to PDF, PNG, JPEG, and WebP
+              files of 10 MB or less. Files up to 400 KB can be previewed in this browser; larger files save their
+              name and details only. Attachment records do not verify the contents or submit them to a municipality.
             </p>
           </section>
           <section>

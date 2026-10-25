@@ -20,13 +20,14 @@ interface ProductTourProps {
     tab: "overview" | "graph" | "timeline" | "documents" | "fees" | "inspections",
   ) => void;
   forceStart?: boolean;
+  autoStart?: boolean;
   onBeforeStart?: () => void;
 }
 
 export function ProductTour({
   activeTab,
-  setActiveTab,
   forceStart = false,
+  autoStart = true,
   onBeforeStart,
 }: ProductTourProps) {
   const { t } = useA11y();
@@ -36,10 +37,16 @@ export function ProductTour({
   const [cardPos, setCardPos] = useState<{ top: number; left: number } | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const scrolledStepRef = useRef<string | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const advanceTimerRef = useRef<number | undefined>(undefined);
+  const autoStartedRef = useRef(false);
 
   const step = PERMIT_TOUR_STEPS[index];
 
   const start = useCallback(() => {
+    autoStartedRef.current = true;
+    returnFocusRef.current = document.activeElement as HTMLElement | null;
     onBeforeStart?.();
     scrolledStepRef.current = null;
     setIndex(0);
@@ -49,18 +56,16 @@ export function ProductTour({
   const finish = useCallback(() => {
     markTourComplete();
     setOpen(false);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("tour");
+    window.history.replaceState(null, "", url);
+    returnFocusRef.current?.focus({ preventScroll: true });
   }, []);
 
   const next = useCallback(() => {
-    setIndex((current) => {
-      if (current >= PERMIT_TOUR_STEPS.length - 1) {
-        markTourComplete();
-        setOpen(false);
-        return current;
-      }
-      return current + 1;
-    });
-  }, []);
+    if (index >= PERMIT_TOUR_STEPS.length - 1) finish();
+    else setIndex((current) => current + 1);
+  }, [index, finish]);
 
   useEffect(() => {
     const unregister = registerTourStartHandler(start);
@@ -73,21 +78,24 @@ export function ProductTour({
   }, [start]);
 
   useEffect(() => {
-    if (forceStart) {
-      const id = window.setTimeout(start, 260);
-      return () => window.clearTimeout(id);
-    }
-    if (isTourComplete()) return;
-    const id = window.setTimeout(start, 450);
+    if (autoStartedRef.current || (!forceStart && (!autoStart || isTourComplete()))) return;
+    const id = window.setTimeout(() => {
+      autoStartedRef.current = true;
+      start();
+    }, forceStart ? 260 : 450);
     return () => window.clearTimeout(id);
-  }, [forceStart, start]);
+  }, [forceStart, autoStart, start]);
+
+  useEffect(() => {
+    if (open) titleRef.current?.focus({ preventScroll: true });
+  }, [open, index]);
 
   useEffect(() => {
     if (!open || !step) return;
     if (activeTab !== step.tab) {
-      setActiveTab(step.tab);
+      finish();
     }
-  }, [open, step, activeTab, setActiveTab]);
+  }, [open, step, activeTab, finish]);
 
   const measureAndScroll = useCallback(() => {
     if (!open || !step) return false;
@@ -172,7 +180,8 @@ export function ProductTour({
     let boundEl: HTMLElement | null = null;
 
     const advance = () => {
-      window.setTimeout(next, 180);
+      window.clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = window.setTimeout(next, 180);
     };
 
     const bind = () => {
@@ -188,6 +197,7 @@ export function ProductTour({
     const t1 = window.setTimeout(bind, 250);
     const t2 = window.setTimeout(bind, 600);
     return () => {
+      window.clearTimeout(advanceTimerRef.current);
       window.clearTimeout(t1);
       window.clearTimeout(t2);
       boundEl?.removeEventListener("click", advance);
@@ -197,9 +207,10 @@ export function ProductTour({
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") finish();
-      if (event.key === "ArrowRight") next();
-      if (event.key === "ArrowLeft") setIndex((i) => Math.max(0, i - 1));
+      if (event.key === "Escape") { event.preventDefault(); finish(); return; }
+      if (!cardRef.current?.contains(event.target as Node)) return;
+      if (event.key === "ArrowRight") { event.preventDefault(); next(); }
+      if (event.key === "ArrowLeft") { event.preventDefault(); setIndex((i) => Math.max(0, i - 1)); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -215,7 +226,8 @@ export function ProductTour({
       className="fixed inset-0 z-50 pointer-events-none"
       role="dialog"
       aria-modal="false"
-      aria-label="PermitPilot interactive guide"
+      aria-labelledby="product-tour-title"
+      aria-describedby="product-tour-body"
     >
       {hole ? (
         <div
@@ -236,7 +248,7 @@ export function ProductTour({
         className="tour-card-slot pointer-events-auto fixed z-10 w-[min(22.5rem,calc(100vw-2rem))]"
         style={{ top: fallbackPos.top, left: fallbackPos.left }}
       >
-        <div className="tour-card">
+        <div className="tour-card max-h-[calc(100dvh-2rem)] overflow-y-auto">
           <div className="flex items-center justify-between gap-2">
             <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[var(--seal)]">
               <Compass size={14} aria-hidden />
@@ -246,17 +258,17 @@ export function ProductTour({
               type="button"
               onClick={finish}
               aria-label={t("tour.skip")}
-              className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-[var(--muted)] hover:text-[var(--ink)]"
+              className="inline-flex min-h-11 items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-[var(--muted)] hover:text-[var(--ink)]"
             >
               {t("tour.skip")}
               <X size={14} aria-hidden />
             </button>
           </div>
 
-          <h3 className="mt-2 font-serif text-lg font-bold text-[var(--navy)]">
+          <h3 id="product-tour-title" ref={titleRef} tabIndex={-1} className="mt-2 font-serif text-lg font-bold text-[var(--navy)]">
             {t(step.titleKey)}
           </h3>
-          <p className="mt-1.5 text-sm leading-relaxed text-[var(--ink)]">
+          <p id="product-tour-body" className="mt-1.5 text-sm leading-relaxed text-[var(--ink)]">
             {t(step.bodyKey)}
           </p>
 
@@ -267,7 +279,7 @@ export function ProductTour({
             </div>
           ) : null}
 
-          <div className="mt-4 flex items-center justify-between gap-2 border-t border-[var(--line)] pt-3">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--line)] pt-3">
             <div className="flex items-center gap-1.5" aria-hidden>
               {PERMIT_TOUR_STEPS.map((item, idx) => (
                 <span
@@ -288,7 +300,7 @@ export function ProductTour({
                 <button
                   type="button"
                   onClick={() => setIndex((i) => Math.max(0, i - 1))}
-                  className="button secondary !min-h-[36px] !px-2.5 text-xs"
+                  className="button secondary !min-h-11 !px-2.5 text-xs"
                 >
                   <ArrowLeft size={14} aria-hidden />
                   {t("tour.back")}
@@ -297,7 +309,7 @@ export function ProductTour({
               <button
                 type="button"
                 onClick={isLast ? finish : next}
-                className="button primary !min-h-[36px] !px-3 text-xs"
+                className="button primary !min-h-11 !px-3 text-xs"
               >
                 {isLast ? t("tour.finish") : t("tour.next")}
                 {!isLast ? <ArrowRight size={14} aria-hidden /> : null}

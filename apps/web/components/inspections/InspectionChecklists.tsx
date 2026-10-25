@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Circle } from "lucide-react";
+import { useRef } from "react";
 import { CodeCitationBadge } from "@/components/citations/CodeCitationBadge";
 import { useA11y } from "@/lib/a11y";
 import { INSPECTION_LABELS, type InspectionItem, type InspectionType } from "@/lib/types";
@@ -15,7 +15,10 @@ export function InspectionChecklists({
   onToggle: (id: string, completed: boolean) => void;
 }) {
   const { plainLanguage } = useA11y();
+  const checkboxRefs = useRef(new Map<string, HTMLInputElement>());
   const types = ORDER.filter((type) => items.some((item) => item.inspectionType === type));
+  const completed = items.filter((item) => item.completed).length;
+  const next = types.flatMap((type) => items.filter((item) => item.inspectionType === type)).find((item) => !item.completed);
 
   if (items.length === 0) {
     return (
@@ -30,6 +33,16 @@ export function InspectionChecklists({
 
   return (
     <div className="space-y-4">
+      <section className="panel">
+        <p className="eyebrow">Inspection preparation</p>
+        <h2 className="font-serif text-2xl text-[var(--navy)]">{completed} of {items.length} preparation items checked</h2>
+        <p className="mt-2 text-sm text-[var(--muted)]">Use these checklists to prepare. Checking an item does not record a passed inspection or book an appointment.</p>
+        {next ? <button type="button" className="button primary mt-4" onClick={() => {
+          const checkbox = checkboxRefs.current.get(next.id);
+          checkbox?.focus({ preventScroll: true });
+          checkbox?.closest("li")?.scrollIntoView({ block: "center", behavior: "instant" });
+        }}>Continue checklist<span className="sr-only">: {next.title}</span></button> : <p className="mt-3 font-semibold text-[var(--ok)]">All preparation items checked. Confirm inspection arrangements with the department.</p>}
+      </section>
       {types.map((type) => {
         const group = items.filter((item) => item.inspectionType === type);
         const done = group.filter((item) => item.completed).length;
@@ -41,7 +54,7 @@ export function InspectionChecklists({
                 <h2 className="font-serif text-2xl text-[var(--navy)]">{INSPECTION_LABELS[type]} readiness</h2>
               </div>
               <p className="text-sm font-medium text-[var(--muted)]" aria-live="polite">
-                {done} of {group.length} passing criteria checked
+                {done} of {group.length} preparation items checked
               </p>
             </div>
             <ul className="mt-4 space-y-2">
@@ -51,31 +64,25 @@ export function InspectionChecklists({
                     <input
                       type="checkbox"
                       className="inspection-check"
+                      aria-label={item.title}
+                      aria-describedby={`inspection-${item.id}-description inspection-${item.id}-criteria`}
+                      ref={(element) => { if (element) checkboxRefs.current.set(item.id, element); else checkboxRefs.current.delete(item.id); }}
                       checked={item.completed}
                       onChange={(event) => onToggle(item.id, event.target.checked)}
                     />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-2 font-semibold">
-                        {item.completed ? (
-                          <CheckCircle2 className="shrink-0 text-[var(--ok)]" size={18} aria-hidden />
-                        ) : (
-                          <Circle className="shrink-0 text-[var(--muted)]" size={18} aria-hidden />
-                        )}
                         {item.title}
                       </span>
-                      <span className="mt-1 block text-sm text-[var(--ink)]">
+                      <span id={`inspection-${item.id}-description`} className="mt-1 block text-sm text-[var(--ink)]">
                         {plainLanguage ? item.plainLanguage : item.description}
                       </span>
-                      <span className="mt-1 block text-sm text-[var(--muted)]">
+                      <span id={`inspection-${item.id}-criteria`} className="mt-1 block text-sm text-[var(--muted)]">
                         Passing: {item.passingCriteria}
                       </span>
-                      {item.citation ? (
-                        <span className="mt-2 inline-flex">
-                          <CodeCitationBadge citation={item.citation} />
-                        </span>
-                      ) : null}
                     </span>
                   </label>
+                  {item.citation ? <div className="mt-2 ms-3"><CodeCitationBadge citation={item.citation} /></div> : null}
                 </li>
               ))}
             </ul>

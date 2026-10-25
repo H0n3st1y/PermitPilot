@@ -27,23 +27,38 @@ export function getSupabaseClient(): SupabaseClient | null {
   if (cachedClient !== undefined) return cachedClient;
   const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-  // no keys = just use local accounts
+  // A missing cloud configuration never enables local passwords in production.
   if (!rawUrl || !anonKey || rawUrl.includes("your-project-ref") || anonKey.includes("paste-your")) {
     cachedClient = null;
     return null;
   }
   const url = rawUrl.replace(/\/rest\/v1\/?$/i, "").replace(/\/+$/, "");
-  cachedClient = createClient(url, anonKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-    },
-  });
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" && !(process.env.NODE_ENV !== "production" && parsed.protocol === "http:")) {
+      cachedClient = null;
+      return null;
+    }
+    cachedClient = createClient(url, anonKey, {
+      auth: { persistSession: true, autoRefreshToken: true },
+    });
+  } catch {
+    // An invalid deployment configuration must not crash the sample or create passwords.
+    cachedClient = null;
+  }
   return cachedClient;
 }
 
 export function isSupabaseConfigured(): boolean {
   return getSupabaseClient() !== null;
+}
+
+export const ACCOUNT_UNAVAILABLE_MESSAGE =
+  "Account sign-in is not available on this installation yet. You can explore the sample project without creating an account.";
+
+export function getAccountAuthMode(): "cloud" | "development" | "unavailable" {
+  if (isSupabaseConfigured()) return "cloud";
+  return process.env.NODE_ENV === "production" ? "unavailable" : "development";
 }
 
 function canUseStorage(): boolean {
@@ -67,11 +82,15 @@ function mapSupabaseUser(user: User): PermitPilotUser {
 
 // whoever is in localStorage right now
 export function getCurrentUser(): PermitPilotUser | null {
-  if (!canUseStorage()) return null;
-  const raw = window.localStorage.getItem(SESSION_KEY);
-  if (!raw) return null;
   try {
-    return JSON.parse(raw) as PermitPilotUser;
+    if (!canUseStorage()) return null;
+    const raw = window.localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const user = JSON.parse(raw) as PermitPilotUser;
+    // Legacy development accounts are UI conveniences, never production identities.
+    if (process.env.NODE_ENV === "production" && user.mode === "local" &&
+      !(user.isDemoJudge && user.id === DEMO_JUDGE_ID)) return null;
+    return user;
   } catch {
     return null;
   }
@@ -110,11 +129,11 @@ function saveLocalAccounts(accounts: StoredLocalAccount[]): void {
   window.localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
 }
 
-// try cloud first then fall back to the browser list
+// Configured cloud accounts must authenticate with the cloud service.
 export async function signInWithEmail(
   email: string,
   password: string,
-): Promise<{ user: PermitPilotUser | null; error?: string }> {
+): Promise<{ user: PermitPilotUser | null; error?: string; message?: string }> {
   const normalizedEmail = email.trim().toLowerCase();
   if (!normalizedEmail || !password) {
     return { user: null, error: "Enter both your email and password." };
@@ -131,12 +150,14 @@ export async function signInWithEmail(
       setStoredUser(mapped);
       return { user: mapped };
     }
-    if (error && !normalizedEmail.endsWith(".demo")) {
-      return { user: null, error: error.message };
-    }
+    return { user: null, error: error?.message ?? "Unable to sign in. Please try again." };
   }
 
-  // local fallback if they dont have supabase set up
+  if (getAccountAuthMode() === "unavailable") {
+    return { user: null, error: ACCOUNT_UNAVAILABLE_MESSAGE };
+  }
+
+  // Development only. Production requires Supabase authentication.
   const accounts = getLocalAccounts();
   const existing = accounts.find((acc) => acc.email === normalizedEmail);
   if (existing) {
@@ -148,7 +169,7 @@ export async function signInWithEmail(
       email: existing.email,
       name: existing.name,
       isDemoJudge: existing.email === DEMO_JUDGE_EMAIL,
-      mode: supabase ? "supabase" : "local",
+      mode: "local",
     };
     setStoredUser(user);
     return { user };
@@ -164,7 +185,7 @@ export async function signUpWithEmail(
   name: string,
   email: string,
   password: string,
-): Promise<{ user: PermitPilotUser | null; error?: string }> {
+): Promise<{ user: PermitPilotUser | null; error?: string; message?: string }> {
   const normalizedEmail = email.trim().toLowerCase();
   const cleanName = name.trim() || normalizedEmail.split("@")[0] || "Applicant";
   if (!normalizedEmail || password.length < 6) {
@@ -180,29 +201,35 @@ export async function signUpWithEmail(
         data: { name: cleanName },
       },
     });
-    if (!error && data.user) {
-      const mapped = mapSupabaseUser(data.user);
-      setStoredUser(mapped);
-      return { user: mapped };
+    if (error) return { user: null, error: error.message };
+    if (!data.session) {
+      return { user: null, message: "Check your email to confirm your account, then return here to sign in." };
     }
+    if (!data.user) return { user: null, error: "Unable to create your account. Please try again." };
+    const mapped = mapSupabaseUser(data.user);
+    setStoredUser(mapped);
+    return { user: mapped };
+  }
+
+  if (getAccountAuthMode() === "unavailable") {
+    return { user: null, error: ACCOUNT_UNAVAILABLE_MESSAGE };
   }
 
   const accounts = getLocalAccounts();
   const existing = accounts.find((acc) => acc.email === normalizedEmail);
-  const account: StoredLocalAccount = existing ?? {
+  if (existing) return { user: null, error: "An account already exists for this email. Sign in with your password instead." };
+  const account: StoredLocalAccount = {
     id: crypto.randomUUID(),
     email: normalizedEmail,
     name: cleanName,
     password,
   };
-  if (!existing) {
-    saveLocalAccounts([...accounts, account]);
-  }
+  saveLocalAccounts([...accounts, account]);
   const user: PermitPilotUser = {
     id: account.id,
     email: account.email,
     name: account.name,
-    mode: supabase ? "supabase" : "local",
+    mode: "local",
   };
   setStoredUser(user);
   return { user };
@@ -210,25 +237,13 @@ export async function signUpWithEmail(
 
 // judges can skip making a real account
 export async function signInAsDemoJudge(): Promise<PermitPilotUser> {
-  const supabase = getSupabaseClient();
-  if (supabase) {
-    const signInAttempt = await supabase.auth.signInWithPassword({
-      email: DEMO_JUDGE_EMAIL,
-      password: "permitpilot-judge-2026",
-    });
-    if (!signInAttempt.error && signInAttempt.data.user) {
-      const mapped = mapSupabaseUser(signInAttempt.data.user);
-      setStoredUser(mapped);
-      return mapped;
-    }
-  }
-
+  // Samples are always browser-local and never share a real cloud credential.
   const judgeUser: PermitPilotUser = {
     id: DEMO_JUDGE_ID,
     email: DEMO_JUDGE_EMAIL,
     name: DEMO_JUDGE_NAME,
     isDemoJudge: true,
-    mode: supabase ? "supabase" : "local",
+    mode: "local",
   };
   setStoredUser(judgeUser);
   return judgeUser;
@@ -238,7 +253,8 @@ export async function signOutPermitPilot(): Promise<void> {
   // wipe both cloud and the local session
   const supabase = getSupabaseClient();
   if (supabase) {
-    await supabase.auth.signOut().catch(() => undefined);
+    const { error } = await supabase.auth.signOut();
+    if (error) throw new Error(error.message);
   }
   setStoredUser(null);
 }

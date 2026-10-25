@@ -5,11 +5,11 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const web = path.join(root, "apps", "web");
-// node 20 is what we used, older ones get weird
-const major = Number(process.versions.node.split(".")[0]);
+// Supabase's current client requires Node.js 22 or newer.
+const [major, minor] = process.versions.node.split(".").map(Number);
 
-if (Number.isNaN(major) || major < 20) {
-  console.error(`PermitPilot needs Node.js 20 or newer. You have ${process.version}.`);
+if (Number.isNaN(major) || major < 22 || (major === 22 && minor < 12)) {
+  console.error(`PermitPilot needs Node.js 22.12 or newer. You have ${process.version}.`);
   console.error("Install it from https://nodejs.org and run this again.");
   process.exit(1);
 }

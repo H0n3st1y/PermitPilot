@@ -1,16 +1,99 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { z } from "zod";
 import { loadJurisdictionExcerpts } from "@/lib/legalSources";
-import type { ProjectConfig } from "@/lib/types";
 
 export const runtime = "nodejs";
 
 // what the graph sends us when they click explain or when it first loads
-interface MatchRequest {
-  action?: "match" | "explain";
-  config: ProjectConfig;
-  stepIds: string[];
-  stepTitle?: string;
-  citationQuote?: string;
+const requestSchema = z.object({
+  action: z.enum(["match", "explain"]).optional(),
+  config: z.object({
+    projectType: z.enum(["food_business", "room_addition", "public_event", "commercial_renovation", "storefront_business"]),
+    state: z.string().regex(/^[a-zA-Z]{2}$/).optional(),
+    useCase: z.string().max(160).optional(),
+    squareFootage: z.number().finite().nonnegative().max(1e10),
+    homeBased: z.boolean().optional(),
+    foodPreparation: z.boolean().optional(),
+    personalCare: z.boolean().optional(),
+    changingSpace: z.boolean().optional(),
+    publicAttendance: z.boolean().optional(),
+  }),
+  stepIds: z.array(z.string().min(1).max(100)).max(60),
+  stepTitle: z.string().max(300).optional(),
+  citationQuote: z.string().max(6000).optional(),
+});
+type MatchRequest = z.infer<typeof requestSchema>;
+const citationSchema = z.object({
+  stepId: z.string().max(100), code: z.string().max(300), title: z.string().max(500),
+  quote: z.string().max(6000),
+  url: z.string().url().max(2048).refine((url) => /^https?:\/\//i.test(url)).nullable(),
+});
+const followUpSchema = z.object({ title: z.string().max(300), detail: z.string().max(2000) });
+
+const MAX_REQUEST_BYTES = 32_768;
+const quotas = new Map<string, { count: number; resetAt: number }>();
+const QUOTA_WINDOW_MS = 60_000;
+const QUOTA_REQUESTS = 10;
+const MAX_QUOTA_USERS = 2048;
+
+async function readBoundedBody(request: Request): Promise<unknown> {
+  if (Number(request.headers.get("content-length")) > MAX_REQUEST_BYTES) throw new Error("BODY_TOO_LARGE");
+  const reader = request.body?.getReader();
+  if (!reader) throw new Error("INVALID_JSON");
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    length += value.byteLength;
+    if (length > MAX_REQUEST_BYTES) {
+      await reader.cancel();
+      throw new Error("BODY_TOO_LARGE");
+    }
+    chunks.push(value);
+  }
+  const body = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) { body.set(chunk, offset); offset += chunk.byteLength; }
+  return JSON.parse(new TextDecoder().decode(body));
+}
+
+async function verifiedCloudUser(request: Request): Promise<string | null> {
+  const token = request.headers.get("authorization")?.match(/^Bearer (\S+)$/i)?.[1];
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  if (!token || token.length > 8192 || !url || !key) return null;
+  try {
+    const client = createClient(url.replace(/\/rest\/v1\/?$/i, "").replace(/\/+$/, ""), key, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
+    // getUser validates the token with Supabase; decoding a supplied JWT is insufficient.
+    const { data, error } = await client.auth.getUser(token);
+    return !error && data.user ? data.user.id : null;
+  } catch { return null; }
+}
+
+function takeQuota(userId: string): number {
+  const now = Date.now();
+  for (const [id, quota] of quotas) if (quota.resetAt <= now) quotas.delete(id);
+  let quota = quotas.get(userId);
+  if (!quota) {
+    // Do not evict live quotas and accidentally allow a requester to reset limits.
+    if (quotas.size >= MAX_QUOTA_USERS) return 60;
+    quota = { count: 0, resetAt: now + QUOTA_WINDOW_MS };
+    quotas.set(userId, quota);
+  }
+  if (quota.count >= QUOTA_REQUESTS) return Math.max(1, Math.ceil((quota.resetAt - now) / 1000));
+  quota.count += 1;
+  return 0;
+}
+
+function localResponse(payload: MatchRequest, state: string, note: string) {
+  return NextResponse.json(payload.action === "explain"
+    ? { explanation: localExplanation(payload, state), modelUsed: false, note }
+    : { citations: [], followUps: [], modelUsed: false, note },
+  { headers: { "Cache-Control": "no-store" } });
 }
 
 const CLAUDE_MODELS = ["claude-sonnet-4-5", "claude-haiku-4-5"];
@@ -41,7 +124,7 @@ function publicClaudeError(message: string): string {
     return "No Anthropic API key is configured on the server.";
   }
   if (message.includes("CLAUDE_401") || message.includes("CLAUDE_403")) {
-    return "Claude rejected the API key. Use a Console key from platform.claude.com/settings/keys, then restart the app.";
+    return "Assisted explanations are unavailable on this installation. Showing local checklist guidance.";
   }
   if (message.includes("workspace")) {
     return "Claude is not connected for this key yet, so this is a local summary. It is not official legal advice.";
@@ -78,6 +161,7 @@ async function callClaude(prompt: string): Promise<string> {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers,
+      signal: AbortSignal.timeout(15_000),
       body: JSON.stringify({
         model,
         max_tokens: 1200,
@@ -116,19 +200,34 @@ function parseJsonObject(text: string): Record<string, unknown> {
 }
 
 export async function POST(request: Request) {
+  if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
+    return NextResponse.json({ error: "Send this request as JSON." }, { status: 415 });
+  }
   let payload: MatchRequest;
   try {
-    payload = (await request.json()) as MatchRequest;
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    const parsed = requestSchema.safeParse(await readBoundedBody(request));
+    if (!parsed.success) return NextResponse.json({ error: "Check the project details and citation, then try again." }, { status: 400 });
+    payload = parsed.data;
+  } catch (error) {
+    const tooLarge = error instanceof Error && error.message === "BODY_TOO_LARGE";
+    return NextResponse.json({ error: tooLarge ? "This request is too large. Choose a shorter citation and try again." : "Send valid project details as JSON." }, { status: tooLarge ? 413 : 400 });
   }
 
   const config = payload.config;
-  if (!config) {
-    return NextResponse.json({ error: "Missing config" }, { status: 400 });
-  }
-
   const state = (config.state ?? "NH").toUpperCase();
+  if (!process.env.ANTHROPIC_API_KEY?.trim()) {
+    return localResponse(payload, state, "Assisted explanations are not enabled here. Showing local checklist guidance.");
+  }
+  const userId = await verifiedCloudUser(request);
+  if (!userId) {
+    return localResponse(payload, state, "Sign in to use assisted explanations. Showing local checklist guidance.");
+  }
+  const retryAfter = takeQuota(userId);
+  if (retryAfter) {
+    return NextResponse.json({ error: "You've requested several explanations. Wait a minute and try again." }, {
+      status: 429, headers: { "Retry-After": String(retryAfter), "Cache-Control": "no-store" },
+    });
+  }
   const excerpts = loadJurisdictionExcerpts(state);
   const action = payload.action === "explain" ? "explain" : "match";
 
@@ -146,7 +245,7 @@ export async function POST(request: Request) {
           excerpts ? `Source excerpts:\n${excerpts.slice(0, 4000)}` : "",
         ].join("\n\n"),
       );
-      return NextResponse.json({ explanation: text.trim(), modelUsed: true });
+      return NextResponse.json({ explanation: text.trim(), modelUsed: true }, { headers: { "Cache-Control": "no-store" } });
     }
 
     // match quotes onto the steps we already picked. dont add new permits
@@ -172,32 +271,28 @@ export async function POST(request: Request) {
       ].join("\n\n"),
     );
     const parsed = parseJsonObject(text);
+    const citations = (Array.isArray(parsed.citations) ? parsed.citations.slice(0, 60) : []).flatMap((item) => {
+      const citation = citationSchema.safeParse(item);
+      return citation.success && payload.stepIds.includes(citation.data.stepId) ? [citation.data] : [];
+    });
+    const followUps = (Array.isArray(parsed.followUps) ? parsed.followUps.slice(0, 10) : []).flatMap((item) => {
+      const followUp = followUpSchema.safeParse(item);
+      return followUp.success ? [followUp.data] : [];
+    });
     return NextResponse.json({
-      citations: Array.isArray(parsed.citations) ? parsed.citations : [],
-      followUps: Array.isArray(parsed.followUps) ? parsed.followUps : [],
+      citations,
+      followUps,
       modelUsed: true,
       note: "Citations are matched from downloaded source files. They are not an official determination.",
-    });
+    }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     // if claude fails we still show something so the button isnt empty
     const message = error instanceof Error ? error.message : "unknown";
-    console.error("[citations]", message);
+    console.error("[citations]", message.split(":")[0]);
     const note =
       message === "NO_KEY"
         ? "No API key is configured. Fixture citations are shown instead."
         : publicClaudeError(message);
-    if (action === "explain") {
-      return NextResponse.json({
-        explanation: localExplanation(payload, state),
-        modelUsed: false,
-        note,
-      });
-    }
-    return NextResponse.json({
-      citations: [],
-      followUps: [],
-      modelUsed: false,
-      note,
-    });
+    return localResponse(payload, state, note);
   }
 }

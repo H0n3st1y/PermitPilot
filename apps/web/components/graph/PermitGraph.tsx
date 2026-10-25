@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Background,
   Controls,
@@ -14,6 +14,7 @@ import {
 import { ArrowRightCircle, CheckCircle2, Copy, Check, Mail, Sparkles, X } from "lucide-react";
 import { CodeCitationBadge } from "@/components/citations/CodeCitationBadge";
 import type { FollowUpSuggestion, MatchedCitation } from "@/lib/citationMatch";
+import { citationRequestHeaders } from "@/lib/citationRequest";
 import { PermitStepNode, type PermitFlowNode } from "@/components/graph/PermitStepNode";
 import { StatusSelect } from "@/components/timeline/StatusSelect";
 import { useA11y } from "@/lib/a11y";
@@ -62,7 +63,7 @@ export function PermitGraph({
   project: Project;
   bottlenecks: Bottleneck[];
   showDemoGuide?: boolean;
-  onStatusChange: (stepId: string, status: PermitStepStatus) => void;
+  onStatusChange: (stepId: string, status: PermitStepStatus) => void | boolean;
 }) {
   const { t, plainLanguage } = useA11y();
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -70,12 +71,26 @@ export function PermitGraph({
   );
   const [handoffText, setHandoffText] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState("");
+  const [copyBusy, setCopyBusy] = useState(false);
   const [matchedCitations, setMatchedCitations] = useState<MatchedCitation[]>([]);
   const [followUps, setFollowUps] = useState<FollowUpSuggestion[]>([]);
   const [explanation, setExplanation] = useState("");
   const [explainNote, setExplainNote] = useState("");
   const [explainFromModel, setExplainFromModel] = useState(false);
   const [explainBusy, setExplainBusy] = useState(false);
+  const explanationRequest = useRef<AbortController | null>(null);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    explanationRequest.current?.abort();
+    setExplanation("");
+    setExplainNote("");
+    setExplainBusy(false);
+    setCopied(false);
+    setCopyError("");
+    return () => { explanationRequest.current?.abort(); if (copyTimer.current) clearTimeout(copyTimer.current); };
+  }, [selectedId]);
 
   const critical = useMemo(() => criticalPathIds(project.roadmap.steps), [project.roadmap.steps]);
   const bottleneckByStep = useMemo(
@@ -120,7 +135,7 @@ export function PermitGraph({
         id: `${dependency}->${step.id}`,
         source: dependency,
         target: step.id,
-        animated: bottleneckByStep.has(step.id) || bottleneckByStep.has(dependency),
+        animated: false,
         className: critical.has(step.id) && critical.has(dependency) ? "permit-edge-critical" : "permit-edge",
       })),
     );
@@ -130,6 +145,9 @@ export function PermitGraph({
 
   const [nodes, setNodes, onNodesChange] = useNodesState(graph.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges);
+  const handleSelectionChange = useCallback(({ nodes: selected }: { nodes: Node[] }) => {
+    if (selected[0]) setSelectedId(selected[0].id);
+  }, []);
 
   useEffect(() => {
     setNodes(graph.nodes);
@@ -137,7 +155,7 @@ export function PermitGraph({
   }, [graph, setNodes, setEdges]);
 
   useEffect(() => {
-    if (selectedId && project.roadmap.steps.some((step) => step.id === selectedId)) return;
+    if (!selectedId || project.roadmap.steps.some((step) => step.id === selectedId)) return;
     setSelectedId(bottlenecks[0]?.stepId ?? project.roadmap.steps[0]?.id ?? null);
   }, [bottlenecks, project.roadmap.steps, selectedId]);
 
@@ -152,11 +170,13 @@ export function PermitGraph({
   useEffect(() => {
     const stepIds = project.roadmap.steps.map((step) => step.id);
     let cancelled = false;
-    void fetch("/api/citations", {
+    const controller = new AbortController();
+    void citationRequestHeaders().then((headers) => fetch("/api/citations", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      signal: controller.signal,
+      headers,
       body: JSON.stringify({ action: "match", config: project.config, stepIds }),
-    })
+    }))
       .then(async (response) => {
         if (!response.ok) return;
         const body = (await response.json()) as {
@@ -170,6 +190,7 @@ export function PermitGraph({
       .catch(() => undefined);
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [citationKey, project.config, project.roadmap.steps]);
 
@@ -178,7 +199,7 @@ export function PermitGraph({
       step.id === stepId ? { ...step, status, statusChangedAt: new Date().toISOString() } : step,
     );
     const nextUpcoming = nextAction(simulatedSteps);
-    onStatusChange(stepId, status);
+    if (onStatusChange(stepId, status) === false) return;
 
     if (status === "approved" && nextUpcoming) {
       setHandoffText(
@@ -202,10 +223,16 @@ export function PermitGraph({
       : "";
 
   async function handleCopyFollowUp() {
-    if (!followUpText || typeof navigator === "undefined" || !navigator.clipboard) return;
-    await navigator.clipboard.writeText(followUpText);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
+    if (!followUpText || copyBusy) return;
+    setCopyBusy(true);
+    setCopyError("");
+    try {
+      await navigator.clipboard.writeText(followUpText);
+      setCopied(true);
+      copyTimer.current = setTimeout(() => setCopied(false), 2500);
+    } catch {
+      setCopyError("Copy was unavailable. Select the draft text below and copy it manually, or try again.");
+    } finally { setCopyBusy(false); }
   }
 
   const matchedForStep = selectedStep
@@ -214,7 +241,9 @@ export function PermitGraph({
 
   async function handleExplainCitation() {
     // pull a quote from the match or the fixture if match is empty
-    if (!selectedStep) return;
+    if (!selectedStep || explainBusy) return;
+    const controller = new AbortController();
+    explanationRequest.current = controller;
     const quote =
       matchedForStep[0]?.quote ??
       selectedStep.citations[0]?.plainLanguage ??
@@ -227,7 +256,8 @@ export function PermitGraph({
     try {
       const response = await fetch("/api/citations", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        signal: controller.signal,
+        headers: await citationRequestHeaders(),
         body: JSON.stringify({
           action: "explain",
           config: project.config,
@@ -236,6 +266,7 @@ export function PermitGraph({
           citationQuote: quote,
         }),
       });
+      if (!response.ok) throw new Error("Explanation request failed");
       const body = (await response.json()) as {
         explanation?: string;
         note?: string;
@@ -246,22 +277,23 @@ export function PermitGraph({
       setExplainFromModel(Boolean(body.modelUsed) && Boolean(text));
       setExplainNote(body.modelUsed ? "" : (body.note ?? ""));
     } catch {
+      if (controller.signal.aborted) return;
       setExplanation(
         quote
           ? `The cited language says: "${quote}"\n\nIn plain English: this step is on the map because of that requirement. Confirm it with the town. This is not official legal advice.`
           : "Could not explain this citation right now.",
       );
       setExplainFromModel(false);
-      setExplainNote("Claude could not be reached.");
+      setExplainNote("The explanation service could not be reached. You can retry or open the citation source.");
     } finally {
-      setExplainBusy(false);
+      if (!controller.signal.aborted) setExplainBusy(false);
     }
   }
 
   return (
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <section className="panel overflow-hidden p-0">
+        <section className="panel min-w-0 overflow-hidden p-0">
           <div className="border-b border-[var(--line)] px-4 py-3">
             <h2 className="font-serif text-2xl text-[var(--navy)]">{t("graph.title")}</h2>
             <p className="mt-1 text-sm text-[var(--muted)]">{t("graph.subtitle")}</p>
@@ -271,6 +303,7 @@ export function PermitGraph({
               {t("graph.stepList")}
             </span>
             <select
+              id="graph-step-picker"
               className="status-select mt-2"
               value={selectedId ?? ""}
               onChange={(event) => {
@@ -281,6 +314,7 @@ export function PermitGraph({
                 setExplainFromModel(false);
               }}
             >
+              <option value="" disabled>{t("graph.selectHint")}</option>
               {project.roadmap.steps.map((step) => (
                 <option key={step.id} value={step.id}>
                   {step.sequence}. {step.shortTitle} ({step.department})
@@ -295,9 +329,11 @@ export function PermitGraph({
               nodeTypes={nodeTypes}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
+              onSelectionChange={handleSelectionChange}
               nodesDraggable={false}
               nodesConnectable={false}
-              panOnScroll
+              panOnScroll={false}
+              preventScrolling={false}
               fitView
               minZoom={0.45}
               maxZoom={1.4}
@@ -317,7 +353,7 @@ export function PermitGraph({
           </div>
         </section>
 
-        <aside className="panel" aria-live="polite">
+        <aside className="panel min-w-0 break-words">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="eyebrow">{t("graph.why")}</p>
@@ -329,7 +365,7 @@ export function PermitGraph({
               <button
                 type="button"
                 className="button secondary px-3"
-                onClick={() => setSelectedId(null)}
+                onClick={() => { setSelectedId(null); document.getElementById("graph-step-picker")?.focus(); }}
               >
                 <X size={16} aria-hidden />
                 <span className="sr-only">{t("graph.close")}</span>
@@ -443,15 +479,16 @@ export function PermitGraph({
                 ) : null}
                 <button
                   type="button"
-                  className="button secondary mt-3 !min-h-[32px] !px-2.5 text-xs"
+                  className="button secondary mt-3 text-sm"
                   disabled={explainBusy}
+                  aria-busy={explainBusy}
                   onClick={() => void handleExplainCitation()}
                 >
                   <Sparkles size={13} aria-hidden />
                   {explainBusy ? "Explaining…" : "Explain this citation"}
                 </button>
                 {explanation ? (
-                  <div className="mt-3 rounded border border-[var(--line)] bg-[var(--card)] p-2.5">
+                  <div role="status" className="mt-3 rounded border border-[var(--line)] bg-[var(--card)] p-2.5">
                     <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
                       {explainFromModel ? "Claude explanation" : "Plain-language summary"}
                     </p>
@@ -483,7 +520,7 @@ export function PermitGraph({
 
               {showFollowUp ? (
                 <div className="mt-4 rounded-lg border border-[var(--line)] bg-[var(--paper)] p-3">
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-[var(--navy)]">
                       <Mail size={14} aria-hidden />
                       {t("graph.followUpTitle")}
@@ -491,14 +528,16 @@ export function PermitGraph({
                     <button
                       type="button"
                       onClick={() => void handleCopyFollowUp()}
-                      className="button secondary !min-h-[32px] !px-2.5 text-xs"
+                      disabled={copyBusy}
+                      className="button secondary text-sm"
                     >
                       {copied ? <Check size={13} aria-hidden /> : <Copy size={13} aria-hidden />}
-                      {copied ? t("graph.copied") : t("graph.copyDraft")}
+                      {copyBusy ? "Copying…" : copied ? t("graph.copied") : t("graph.copyDraft")}
                     </button>
                   </div>
+                  <p className={copyError ? "mt-2 text-sm text-[var(--danger)]" : "sr-only"} role="status">{copyError || (copied ? "Draft copied to clipboard." : "")}</p>
                   <p className="mt-1 text-xs text-[var(--muted)]">{t("graph.followUpNote")}</p>
-                  <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-[var(--line)] bg-[var(--card)] p-2.5 font-mono text-xs text-[var(--ink)]">
+                  <pre tabIndex={0} aria-label="Follow-up email draft" className="mt-2 max-h-60 overflow-auto whitespace-pre-wrap break-words rounded border border-[var(--line)] bg-[var(--card)] p-2.5 font-mono text-xs text-[var(--ink)]">
                     {followUpText}
                   </pre>
                 </div>

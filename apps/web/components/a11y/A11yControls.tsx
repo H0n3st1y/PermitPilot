@@ -13,6 +13,11 @@ export function A11yControls() {
   const panelId = useId();
   const wrapRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (open) menuRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -59,7 +64,9 @@ export function A11yControls() {
         <Languages size={16} aria-hidden />
         {t("a11y.plainEnglish")}
       </button>
-      <div className="relative" ref={wrapRef}>
+      <div className="relative" ref={wrapRef} onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
+      }}>
         <button
           ref={triggerRef}
           type="button"
@@ -70,12 +77,24 @@ export function A11yControls() {
           aria-label={t("a11y.languageSwitch")}
           title={t("a11y.languageHint")}
           onClick={() => setOpen((value) => !value)}
+          onKeyDown={(event) => { if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); setOpen(true); } }}
         >
           <Languages size={14} aria-hidden />
           <span lang={locale}>{LOCALE_META[locale].native}</span>
         </button>
         {open ? (
-          <div id={panelId} className="locale-menu" role="listbox" aria-label={t("a11y.languageSwitch")}>
+          <div ref={menuRef} id={panelId} className="locale-menu" role="listbox" aria-label={t("a11y.languageSwitch")}
+            onKeyDown={(event) => {
+              const options = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="option"]'));
+              const current = options.indexOf(document.activeElement as HTMLButtonElement);
+              let next = current;
+              if (event.key === "ArrowDown") next = (current + 1) % options.length;
+              else if (event.key === "ArrowUp") next = (current - 1 + options.length) % options.length;
+              else if (event.key === "Home") next = 0;
+              else if (event.key === "End") next = options.length - 1;
+              else return;
+              event.preventDefault(); options[next]?.focus();
+            }}>
             {LOCALES.map((code) => {
               const selected = code === locale;
               const meta = LOCALE_META[code];
@@ -87,6 +106,7 @@ export function A11yControls() {
                   className="locale-option"
                   lang={code}
                   aria-selected={selected}
+                  tabIndex={selected ? 0 : -1}
                   onClick={() => pickLang(code)}
                 >
                   <span className="locale-option-native">{meta.native}</span>

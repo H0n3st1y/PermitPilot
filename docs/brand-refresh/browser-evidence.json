@@ -1,0 +1,56 @@
+{
+  "checkedAt": "2026-10-25T04:44:05.659Z",
+  "environment": "Production standalone server, isolated Chromium viewport/touch emulation; not a physical installed device",
+  "checks": [
+    {
+      "label": "narrow",
+      "width": 320,
+      "height": 740,
+      "errors": [],
+      "fits": true,
+      "font": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, Arial, sans-serif"
+    },
+    {
+      "label": "phone",
+      "width": 390,
+      "height": 844,
+      "errors": [],
+      "fits": true,
+      "font": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, Arial, sans-serif"
+    },
+    {
+      "label": "tablet",
+      "width": 768,
+      "height": 1024,
+      "errors": [],
+      "fits": true,
+      "font": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, Arial, sans-serif"
+    },
+    {
+      "label": "desktop",
+      "width": 1440,
+      "height": 1000,
+      "errors": [],
+      "fits": true,
+      "font": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, Arial, sans-serif"
+    }
+  ],
+  "pwa": {
+    "manifestErrors": [],
+    "installabilityErrors": [],
+    "controller": true,
+    "standalone": false,
+    "caches": [
+      "permitpilot-public-v4"
+    ],
+    "paths": [
+      "/offline.html",
+      "/manifest.webmanifest",
+      "/icon.svg",
+      "/icons/icon-192.png",
+      "/icons/icon-512.png",
+      "/icons/maskable-512.png",
+      "/icons/apple-touch-icon.png"
+    ]
+  }
+}
